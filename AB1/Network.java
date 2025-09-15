@@ -4,7 +4,7 @@
  * populate the network with weights, and train or run the network.
  * 
  * @author Brenna Ren
- * @version September 11, 2025
+ * @version September 15, 2025
  * Date of creation: September 9, 2025
  */
 public class Network {
@@ -23,8 +23,9 @@ public class Network {
    public boolean printTruthTable;        // whether to print the truth table after training/running
    public boolean printHiddenActivations; // whether to print the hidden activations after each run
 
-   public String weightConfig;      // whether to use manually specified weights or random weights
-   public boolean isTraining;       // whether the network is in training mode (true) or running mode (false)
+   public String weightConfig;         // whether to use manually specified weights or random weights
+   public boolean isTraining;          // whether the network is in training mode (true) or running mode (false)
+   public boolean runAfterTraining;    // whether to run the network after training
 
    public int numTestCases;         // number of test cases
    
@@ -63,19 +64,21 @@ public class Network {
       this.numActivationsH = 2;
       this.numOutputsF = 1;
 
-      this.randomWeightMin = 0;
-      this.randomWeightMax = 1.0;
-      this.maxIterations = 10000;
-      this.errorThreshold = 0.01;
+      this.randomWeightMin = -1.5;
+      this.randomWeightMax = 1.5;
+      this.maxIterations = 100000;
+      this.errorThreshold = 0.0002;
       this.lambdaValue = 0.3;
       
       this.printNetworkSpecifics = true;
-      this.printInputTable = true;
+      this.printInputTable = false;
       this.printTruthTable = true;
       this.printHiddenActivations = false;
       
-      this.weightConfig = "Random"; // "Manual" or "Random"
-      this.isTraining = true;
+      this.weightConfig = "Manual"; // "Manual" or "Random"
+      this.isTraining = false;
+      this.runAfterTraining = false;
+
       this.numTestCases = 4;
 
       this.averageError = Double.MAX_VALUE;
@@ -93,7 +96,9 @@ public class Network {
       System.out.println("Print Input Table: " + printInputTable);
       System.out.println("Print Truth Table: " + printTruthTable);
       System.out.println("Print Hidden Activations: " + printHiddenActivations);
+      System.out.println("Weight Configuration: " + weightConfig);
       System.out.println("Mode: " + (isTraining ? "Training" : "Running"));
+      System.out.println("Run After Training: " + runAfterTraining);
       System.out.println("Number of Test Cases: " + numTestCases);
    } // public void printNetworkConfigs()
    
@@ -103,7 +108,6 @@ public class Network {
    public void printTrainingParameters()
    {
       System.out.println("---------TRAINING PARAMETERS---------");
-      System.out.println("Weight Configuration: " + weightConfig);
       System.out.println("Random Weight Range: " + randomWeightMin + " to " + randomWeightMax);
       System.out.println("Max Iterations: " + maxIterations);
       System.out.println("Error Threshold: " + errorThreshold);
@@ -122,7 +126,11 @@ public class Network {
       hF0_weights = new double[numActivationsH];
       h_thetas = new double[numActivationsH];
       testCaseInput = new double[numTestCases][numActivationsA];
-      testCaseOutput = new double[numTestCases];
+      
+      if (printTruthTable)
+      {
+         testCaseOutput = new double[numTestCases];
+      }
 
       if (isTraining)
       {
@@ -208,15 +216,15 @@ public class Network {
 
       testCaseInput[1][0] = 0.0;
       testCaseInput[1][1] = 1.0;
-      testCaseOutput[1] = 0.0;
+      testCaseOutput[1] = 1.0;
 
       testCaseInput[2][0] = 1.0;
       testCaseInput[2][1] = 0.0;
-      testCaseOutput[2] = 0.0;
+      testCaseOutput[2] = 1.0;
 
       testCaseInput[3][0] = 1.0;
       testCaseInput[3][1] = 1.0;
-      testCaseOutput[3] = 1.0;
+      testCaseOutput[3] = 0.0;
    } // public void fillTestCases()
 
    /**
@@ -311,7 +319,7 @@ public class Network {
       for (int j = 0; j<numActivationsH; j++)
       {
          h_omegas[j] = F0_psi * hF0_weights[j];
-         h_psis[j] = h_omegas[j] * derivActivationFunction(h_omegas[j]);
+         h_psis[j] = h_omegas[j] * derivActivationFunction(h_thetas[j]);
       }
 
       for (int k = 0; k<numActivationsA; k++)
@@ -326,14 +334,14 @@ public class Network {
 
    /**
     * Calculates the derivative of the activation function.
-    * Currently, this is the derivative of the sigmoid activation function (f'(omega) = f(omega) * (1 - f(omega))).
+    * Currently, this is the derivative of the sigmoid activation function (f'(theta) = f(theta) * (1 - f(theta))).
     * This can be modified to implement different activation functions as needed.
-    * @param omega the input value to the derivative of the activation function
+    * @param theta the input value to the derivative of the activation function
     * @return the output of the derivative of the activation function
     */
-   public double derivActivationFunction(double omega)
+   public double derivActivationFunction(double theta)
    {
-      return activationFunction(omega) * (1 - activationFunction(omega));
+      return activationFunction(theta) * (1 - activationFunction(theta));
    }
 
    /**
@@ -345,7 +353,7 @@ public class Network {
       System.out.println("\n---------TRAINING RESULTS---------");
       System.out.println("Iterations: " + iteration);
       System.out.printf("Final Average Error: %.6f\n", averageError);
-      System.out.println("Reason: ");
+      System.out.print("Reason: ");
       if (averageError <= errorThreshold)
       {
          System.out.println("Error threshold reached.");
@@ -441,7 +449,7 @@ public class Network {
     */
    public void printNetworkWeights()
    {
-      System.out.println("\n----NETWORK WEIGHTS---------");
+      System.out.println("\n---------NETWORK WEIGHTS---------");
       System.out.println("Weights from Input Layer to Hidden Layer (ah_weights):");
       for (int k = 0; k < numActivationsA; k++)
       {
