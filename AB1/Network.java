@@ -4,10 +4,11 @@
  * populate the network with weights, and train or run the network.
  * 
  * @author Brenna Ren
- * @version September 15, 2025
+ * @version September 17, 2025
  * Date of creation: September 9, 2025
  */
-public class Network {
+public class Network 
+{
    public int numActivationsA;      // number of input activations
    public int numActivationsH;      // number of hidden activations
    public int numOutputsF;          // number of outputs (always 1 for A-B-1 network)
@@ -47,12 +48,20 @@ public class Network {
    private double[][] ah_deltaWeights; // changes in weights from input layer to hidden layer
    private double[] hF0_deltaWeights;  // changes in weights from hidden layer to output
    
-   private double averageError;     // average error across all test cases
-   private int iteration;           // current training iteration
+   private double averageError;  // average error across all test cases
+   private int iteration;        // current training iteration
 
    private double[][] testCaseInput;   // input values for all test cases
    private double[] testCaseOutput;    // expected output values for all test cases
 
+   /**
+    * Initializes the network's variables to default values.
+    */
+   public void initializeVariables()
+   {
+      averageError = Double.MAX_VALUE;
+      iteration = 0;
+   }
 
    /**
     * Initializes the configurations of the Network with default, hard-coded values.
@@ -61,7 +70,7 @@ public class Network {
    public void setManualConfigs()
    {
       this.numActivationsA = 2;
-      this.numActivationsH = 2;
+      this.numActivationsH = 1;
       this.numOutputsF = 1;
 
       this.randomWeightMin = -1.5;
@@ -70,19 +79,16 @@ public class Network {
       this.errorThreshold = 0.0002;
       this.lambdaValue = 0.3;
       
-      this.printNetworkSpecifics = true;
-      this.printInputTable = false;
+      this.printNetworkSpecifics = false;
+      this.printInputTable = true;
       this.printTruthTable = true;
       this.printHiddenActivations = false;
       
-      this.weightConfig = "Manual"; // "Manual" or "Random"
-      this.isTraining = false;
-      this.runAfterTraining = false;
+      this.weightConfig = "Random"; // "Manual" or "Random"
+      this.isTraining = true;
+      this.runAfterTraining = true;
 
       this.numTestCases = 4;
-
-      this.averageError = Double.MAX_VALUE;
-      this.iteration = 0;
    } // public void setManualConfigs()
 
    /**
@@ -90,7 +96,7 @@ public class Network {
     */
    public void printNetworkConfigs()
    {
-      System.out.println("---------NETWORK CONFIGURATIONS---------");
+      System.out.println("\n---------NETWORK CONFIGURATIONS---------");
       System.out.println("Type of Network: " + numActivationsA + "-" + numActivationsH + "-" + numOutputsF);
       System.out.println("Print Network Specifics: " + printNetworkSpecifics);
       System.out.println("Print Input Table: " + printInputTable);
@@ -107,7 +113,7 @@ public class Network {
     */
    public void printTrainingParameters()
    {
-      System.out.println("---------TRAINING PARAMETERS---------");
+      System.out.println("\n---------TRAINING PARAMETERS---------");
       System.out.println("Random Weight Range: " + randomWeightMin + " to " + randomWeightMax);
       System.out.println("Max Iterations: " + maxIterations);
       System.out.println("Error Threshold: " + errorThreshold);
@@ -141,7 +147,6 @@ public class Network {
          ah_dEdW = new double[numActivationsA][numActivationsH];
          hF0_dEdW = new double[numActivationsH];
       } // if (isTraining)
-      
    } // public void allocateNetworkMemory()
 
    /**
@@ -150,7 +155,7 @@ public class Network {
     */
    public void populateNetwork()
    {
-      if (weightConfig == "Manual")
+      if (weightConfig.equals("Manual"))
       {
          fillManualWeights();
       }
@@ -184,23 +189,25 @@ public class Network {
       {
          for (int j = 0; j < numActivationsH; j++)
          {
-            ah_weights[k][j] = getRandomWeight();
+            ah_weights[k][j] = getRandomValue(randomWeightMin, randomWeightMax);
          }
       }
 
       for (int j = 0; j < numActivationsH; j++)
       {
-         hF0_weights[j] = getRandomWeight();
+         hF0_weights[j] = getRandomValue(randomWeightMin, randomWeightMax);
       }
    } // public void fillRandomWeights()
 
    /**
-    * Generates a random weight between randomWeightMin and randomWeightMax.
-    * @return a random weight as a double
+    * Generates a random double value between the specified low and high values.
+    * @param low the minimum value (inclusive)
+    * @param high the maximum value (exclusive)
+    * @return a random double between low and high
     */
-   public double getRandomWeight()
+   public double getRandomValue(double low, double high)
    {
-      return Math.random() * (randomWeightMax - randomWeightMin) + randomWeightMin;
+      return Math.random() * (high - low) + low;
    }
 
    /**
@@ -228,10 +235,10 @@ public class Network {
    } // public void fillTestCases()
 
    /**
-    * Trains the network using the training data until the average error is below the error threshold
+    * Trains the network using all training data until the average error is below the error threshold
     * or the maximum number of iterations is reached.
     */
-   public void train()
+   public void trainAll()
    {
       while (averageError > errorThreshold && iteration < maxIterations)
       {
@@ -242,7 +249,7 @@ public class Network {
          iteration++;
          updateAverageError();
       }
-   } // public void train()
+   } // public void trainAll()
 
    /**
     * Updates the average error across all test cases by calculating the error for each case
@@ -276,6 +283,7 @@ public class Network {
     */
    public void trainByCase(int caseIndex)
    {
+      setUpTestCase(caseIndex);
       runByCase(caseIndex);
       updateDeltaWeights(caseIndex);
       updateWeights();
@@ -286,15 +294,15 @@ public class Network {
     */
    public void updateWeights()
    {
-      for (int k = 0; k<numActivationsA; k++)
+      for (int k = 0; k < numActivationsA; k++)
       {
-         for (int j = 0; j<numActivationsH; j++)
+         for (int j = 0; j < numActivationsH; j++)
          {
             ah_weights[k][j] += ah_deltaWeights[k][j];
          }
       }
 
-      for (int j = 0; j<numActivationsH; j++)
+      for (int j = 0; j < numActivationsH; j++)
       {
          hF0_weights[j] += hF0_deltaWeights[j];
       }
@@ -308,23 +316,23 @@ public class Network {
    public void updateDeltaWeights(int caseIndex)
    {
       F0_omega = testCaseOutput[caseIndex] - F0[caseIndex];
-      F0_psi = F0_omega * derivActivationFunction(F0_omega);
+      F0_psi = F0_omega * derivActivationFunction(F0_theta);
 
-      for (int j = 0; j<numActivationsH; j++)
+      for (int j = 0; j < numActivationsH; j++)
       {
          hF0_dEdW[j] = -h[j] * F0_psi;
          hF0_deltaWeights[j] = -lambdaValue * hF0_dEdW[j];
       }
 
-      for (int j = 0; j<numActivationsH; j++)
+      for (int j = 0; j < numActivationsH; j++)
       {
          h_omegas[j] = F0_psi * hF0_weights[j];
          h_psis[j] = h_omegas[j] * derivActivationFunction(h_thetas[j]);
       }
 
-      for (int k = 0; k<numActivationsA; k++)
+      for (int k = 0; k < numActivationsA; k++)
       {
-         for (int j = 0; j<numActivationsH; j++)
+         for (int j = 0; j < numActivationsH; j++)
          {
             ah_dEdW[k][j] = -a[k] * h_psis[j];
             ah_deltaWeights[k][j] = -lambdaValue * ah_dEdW[k][j];
@@ -341,12 +349,13 @@ public class Network {
     */
    public double derivActivationFunction(double theta)
    {
-      return activationFunction(theta) * (1 - activationFunction(theta));
+      double activationFunctionValue = activationFunction(theta);
+      return activationFunctionValue * (1.0 - activationFunctionValue);
    }
 
    /**
     * Prints the training results, including the number of iterations, final average error,
-    * and optionally the network specifics, input table, and truth table.
+    * and optionally the network specifics.
     */
    public void printTrainResults()
    {
@@ -366,26 +375,19 @@ public class Network {
       {
          printNetworkWeights();
       }
-      if (printTruthTable)
-      {
-         printTruthTable();
-      }
    } // public void printTrainResults()
 
    /**
     * Runs the network for all test cases, calculating the hidden activations and output for each case.
     */
-   public void run()
+   public void runAll()
    {
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
+         setUpTestCase(caseIndex);
          runByCase(caseIndex);
-         if (printHiddenActivations)
-         {
-            printHiddenActivations();
-         }
       }
-   } // public void run()
+   } // public void runAll()
 
    /**
     * Runs the network for a specific test case index, calculating the hidden activations and output.
@@ -393,11 +395,6 @@ public class Network {
     */
    public void runByCase(int caseIndex)
    {
-      for (int k = 0; k < numActivationsA; k++)
-      {
-         a[k] = testCaseInput[caseIndex][k];
-      }
-
       for (int j = 0; j < numActivationsH; j++)
       {
          h_thetas[j] = 0.0;
@@ -429,6 +426,18 @@ public class Network {
    }
 
    /**
+    * Sets up the input activations for a specific test case index.
+    * @param caseIndex the index of the test case to set up
+    */
+   public void setUpTestCase(int caseIndex)
+   {
+      for (int k = 0; k < numActivationsA; k++)
+      {
+         a[k] = testCaseInput[caseIndex][k];
+      }
+   }
+
+   /**
     * Prints the run results, including optionally the network specifics and truth table.
     */
    public void printRunResults()
@@ -440,7 +449,7 @@ public class Network {
       }
       if (printTruthTable)
       {
-         printTruthTable();
+         printTruthTableWithOutputs();
       }
    } // public void printRunResults()
 
@@ -467,12 +476,12 @@ public class Network {
    } // public void printNetworkWeights()
    
    /**
-    * Prints the input table showing input activations and expected output for all test cases.
+    * Prints the input table showing input activations for all test cases.
     */
    public void printInputTable()
    {
       System.out.println("\n---------INPUT TABLE---------");
-      System.out.println("Inputs | Expected Output");
+      System.out.println("Inputs");
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
          System.out.print("[");
@@ -480,14 +489,14 @@ public class Network {
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][k]);
          }
-         System.out.printf("] | %.2f\n", testCaseOutput[caseIndex]);
+         System.out.println("]");
       }
    } // public void printInputTable()
 
    /**
     * Prints the truth table showing input activations, expected output, and actual output for all test cases.
     */
-   public void printTruthTable()
+   public void printTruthTableWithOutputs()
    {
       System.out.println("\n---------TRUTH TABLE---------");
       System.out.println("Inputs | Expected Output | Actual Output");
@@ -500,7 +509,7 @@ public class Network {
          }
          System.out.printf("] | %.2f | %.6f\n", testCaseOutput[caseIndex], F0[caseIndex]);
       }
-   } // public void printTruthTable()
+   } // public void printTruthTableWithOutputs()
 
    /**
     * Prints the activations of the hidden layer.
@@ -513,5 +522,4 @@ public class Network {
          System.out.printf("h_activations[%d]: %.6f\n", j, h[j]);
       }
    }
-
 } // public class Network

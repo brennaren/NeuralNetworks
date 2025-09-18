@@ -1,15 +1,15 @@
 /**
- * Main class that runs the A-B-1 neural network based on user configurations loaded from a network configuration file. 
- * It stores and sets the configuration parameters, allocates memory for the Network, trains/runs the 
- * Network, and outputs relevant information from running the Network.
+ * Main class that runs the A-B-1 neural network based on user configurations that are configured directly in the
+ * setManualConfigs() method in Network.java. Configurations will be set to be read from a file in future versions.
+ * This class makes the Network set the configuration parameters, allocates memory for training/running, trains/runs 
+ * the  Network, and outputs relevant information from running the Network.
  * 
  * @author Brenna Ren
- * @version September 15, 2025
+ * @version September 17, 2025
  * Date of creation: September 5, 2025
  */
 public class Main 
 {
-
    /**
     * Main method that contains independent methods that run the Network based on the user's configurations.
     * First, it sets the configuration parameters and echos them by printing them to the console. Then, it 
@@ -22,8 +22,15 @@ public class Main
    public static void main(String[] args) 
    {
       Network network = new Network();
+      network.initializeVariables();
       network.setManualConfigs();
       network.printNetworkConfigs();
+
+      if (network.isTraining)
+      {
+         network.printTrainingParameters();
+      }
+
       network.allocateNetworkMemory();
       network.populateNetwork();
 
@@ -34,21 +41,19 @@ public class Main
 
       if (network.isTraining)
       {
-         network.printTrainingParameters();
-         network.train();
+         network.trainAll();
          network.printTrainResults();
 
          if (network.runAfterTraining)
          {
-            network.run();
+            network.runAll();
             network.printRunResults();
          }
       } // if (network.isTraining)
       else
       {
-         network.run();
+         network.runAll();
          network.printRunResults();
       }
-
    } // public static void main(String[] args)
 } // public class Main
