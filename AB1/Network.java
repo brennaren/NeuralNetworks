@@ -54,23 +54,23 @@ public class Network
    private double[][] testCaseInput;   // input values for all test cases
    private double[] testCaseOutput;    // expected output values for all test cases
 
-   /**
-    * Initializes the network's variables to default values.
-    */
+/**
+ * Initializes the network's variables to default values.
+ */
    public void initializeVariables()
    {
       averageError = Double.MAX_VALUE;
       iteration = 0;
    }
 
-   /**
-    * Initializes the configurations of the Network with default, hard-coded values.
-    * These values can be changed by modifying this method.
-    */
+/**
+ * Initializes the configurations of the Network with default, hard-coded values.
+ * These values can be changed by modifying this method.
+ */
    public void setManualConfigs()
    {
       this.numActivationsA = 2;
-      this.numActivationsH = 1;
+      this.numActivationsH = 20;
       this.numOutputsF = 1;
 
       this.randomWeightMin = -1.5;
@@ -85,15 +85,15 @@ public class Network
       this.printHiddenActivations = false;
       
       this.weightConfig = "Random"; // "Manual" or "Random"
-      this.isTraining = true;
-      this.runAfterTraining = true;
+      this.isTraining = false;
+      this.runAfterTraining = false;
 
       this.numTestCases = 4;
    } // public void setManualConfigs()
 
-   /**
-    * Echos the network configurations by printing them to the console.
-    */
+/**
+ * Echos the network configurations by printing them to the console.
+ */
    public void printNetworkConfigs()
    {
       System.out.println("\n---------NETWORK CONFIGURATIONS---------");
@@ -108,9 +108,9 @@ public class Network
       System.out.println("Number of Test Cases: " + numTestCases);
    } // public void printNetworkConfigs()
    
-   /**
-    * Echos the training parameters by printing them to the console.
-    */
+/**
+ * Echos the training parameters by printing them to the console.
+ */
    public void printTrainingParameters()
    {
       System.out.println("\n---------TRAINING PARAMETERS---------");
@@ -120,9 +120,9 @@ public class Network
       System.out.println("Lambda Value: " + lambdaValue);
    }
 
-   /**
-    * Allocates memory for the network's arrays based on the number of activations.
-    */
+/**
+ * Allocates memory for the network's arrays based on the number of activations.
+ */
    public void allocateNetworkMemory()
    {
       a = new double[numActivationsA];
@@ -149,10 +149,10 @@ public class Network
       } // if (isTraining)
    } // public void allocateNetworkMemory()
 
-   /**
-    * Populates the network's weights either with manually specified weights (for testing)
-    * or with random weights within the specified range.
-    */
+/**
+ * Populates the network's weights either with manually specified weights (for testing)
+ * or with random weights within the specified range.
+ */
    public void populateNetwork()
    {
       if (weightConfig.equals("Manual"))
@@ -166,10 +166,10 @@ public class Network
       fillTestCases();
    } // public void populateNetwork()
 
-   /**
-    * Fills the weights array with manually specified weights.
-    * These values can be changed by modifying this method.
-    */
+/**
+ * Fills the weights array with manually specified weights.
+ * These values can be changed by modifying this method.
+ */
    public void fillManualWeights()
    {
       ah_weights[0][0] = 0.1;
@@ -180,9 +180,9 @@ public class Network
       hF0_weights[1] = 0.6;
    }
    
-   /**
-    * Fills the weights array with randomized weights between randomWeightMin and randomWeightMax.
-    */
+/**
+ * Fills the weights array with randomized weights between randomWeightMin and randomWeightMax.
+ */
    public void fillRandomWeights()
    {
       for (int k = 0; k < numActivationsA; k++)
@@ -199,22 +199,22 @@ public class Network
       }
    } // public void fillRandomWeights()
 
-   /**
-    * Generates a random double value between the specified low and high values.
-    * @param low the minimum value (inclusive)
-    * @param high the maximum value (exclusive)
-    * @return a random double between low and high
-    */
+/**
+ * Generates a random double value between the specified low and high values.
+ * @param low the minimum value (inclusive)
+ * @param high the maximum value (exclusive)
+ * @return a random double between low and high
+ */
    public double getRandomValue(double low, double high)
    {
       return Math.random() * (high - low) + low;
    }
 
-   /**
-    * Manually populates the test cases for the network.
-    * These values can be changed by modifying this method.
-    * It is currently set up for 2 input activations.
-    */
+/**
+ * Manually populates the test cases for the network.
+ * These values can be changed by modifying this method.
+ * It is currently set up for 2 input activations.
+ */
    public void fillTestCases()
    {
       testCaseInput[0][0] = 0.0;
@@ -234,10 +234,10 @@ public class Network
       testCaseOutput[3] = 0.0;
    } // public void fillTestCases()
 
-   /**
-    * Trains the network using all training data until the average error is below the error threshold
-    * or the maximum number of iterations is reached.
-    */
+/**
+ * Trains the network using all training data until the average error is below the error threshold
+ * or the maximum number of iterations is reached.
+ */
    public void trainAll()
    {
       while (averageError > errorThreshold && iteration < maxIterations)
@@ -251,10 +251,10 @@ public class Network
       }
    } // public void trainAll()
 
-   /**
-    * Updates the average error across all test cases by calculating the error for each case
-    * and finding the mean of them.
-    */
+/**
+ * Updates the average error across all test cases by calculating the error for each case
+ * and finding the mean of them.
+ */
    public void updateAverageError()
    {
       double totalError = 0.0;
@@ -265,22 +265,22 @@ public class Network
       averageError = totalError / numTestCases;
    }
 
-   /**
-    * Calculates the error for a specific test case index using the formula:
-    * E = 0.5 * (target - output)^2
-    * @param caseIndex the index of the test case to use
-    * @return the calculated error as a double
-    */
+/**
+ * Calculates the error for a specific test case index using the formula:
+ * E = 0.5 * (target - output)^2
+ * @param caseIndex the index of the test case to use
+ * @return the calculated error as a double
+ */
    public double errorFunction(int caseIndex)
    {
       return 0.5 * (testCaseOutput[caseIndex] - F0[caseIndex]) * (testCaseOutput[caseIndex] - F0[caseIndex]);
    }
 
-   /**
-    * Trains the network for a specific test case index by running the network, updating the delta weights,
-    * and then updating the weights.
-    * @param caseIndex the index of the test case to use
-    */
+/**
+ * Trains the network for a specific test case index by running the network, updating the delta weights,
+ * and then updating the weights.
+ * @param caseIndex the index of the test case to use
+ */
    public void trainByCase(int caseIndex)
    {
       setUpTestCase(caseIndex);
@@ -289,9 +289,9 @@ public class Network
       updateWeights();
    }
 
-   /**
-    * Updates the network's weights by adding the calculated delta weights to the current weights.
-    */
+/**
+ * Updates the network's weights by adding the calculated delta weights to the current weights.
+ */
    public void updateWeights()
    {
       for (int k = 0; k < numActivationsA; k++)
@@ -308,11 +308,11 @@ public class Network
       }
    } // public void updateWeights()
 
-   /**
-    * Calculates the delta weights for the network based on the output error for a specific test case.
-    * Uses the calculations outlined in the design document. Updates the omegas, psis, dEdWs, and deltaWeights. 
-    * @param caseIndex the index of the test case to use
-    */
+/**
+ * Calculates the delta weights for the network based on the output error for a specific test case.
+ * Uses the calculations outlined in the design document. Updates the omegas, psis, dEdWs, and deltaWeights. 
+ * @param caseIndex the index of the test case to use
+ */
    public void updateDeltaWeights(int caseIndex)
    {
       F0_omega = testCaseOutput[caseIndex] - F0[caseIndex];
@@ -340,23 +340,23 @@ public class Network
       }
    } // public void updateDeltaWeights(int caseIndex)
 
-   /**
-    * Calculates the derivative of the activation function.
-    * Currently, this is the derivative of the sigmoid activation function (f'(theta) = f(theta) * (1 - f(theta))).
-    * This can be modified to implement different activation functions as needed.
-    * @param theta the input value to the derivative of the activation function
-    * @return the output of the derivative of the activation function
-    */
+/**
+ * Calculates the derivative of the activation function.
+ * Currently, this is the derivative of the sigmoid activation function (f'(theta) = f(theta) * (1 - f(theta))).
+ * This can be modified to implement different activation functions as needed.
+ * @param theta the input value to the derivative of the activation function
+ * @return the output of the derivative of the activation function
+ */
    public double derivActivationFunction(double theta)
    {
       double activationFunctionValue = activationFunction(theta);
       return activationFunctionValue * (1.0 - activationFunctionValue);
    }
 
-   /**
-    * Prints the training results, including the number of iterations, final average error,
-    * and optionally the network specifics.
-    */
+/**
+ * Prints the training results, including the number of iterations, final average error,
+ * and optionally the network specifics.
+ */
    public void printTrainResults()
    {
       System.out.println("\n---------TRAINING RESULTS---------");
@@ -377,9 +377,9 @@ public class Network
       }
    } // public void printTrainResults()
 
-   /**
-    * Runs the network for all test cases, calculating the hidden activations and output for each case.
-    */
+/**
+ * Runs the network for all test cases, calculating the hidden activations and output for each case.
+ */
    public void runAll()
    {
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
@@ -389,10 +389,10 @@ public class Network
       }
    } // public void runAll()
 
-   /**
-    * Runs the network for a specific test case index, calculating the hidden activations and output.
-    * @param caseIndex  the index of the test case to run
-    */
+/**
+ * Runs the network for a specific test case index, calculating the hidden activations and output.
+ * @param caseIndex  the index of the test case to run
+ */
    public void runByCase(int caseIndex)
    {
       for (int j = 0; j < numActivationsH; j++)
@@ -413,22 +413,22 @@ public class Network
       F0[caseIndex] = activationFunction(F0_theta);
    } // public void runByCase(int caseIndex)
 
-   /**
-    * Applies the activation function to the given theta value.
-    * Currently, this is a sigmoid activation function (f(theta) = 1 / (1 + e^(-theta))).
-    * This can be modified to implement different activation functions as needed.
-    * @param theta the input value to the activation function
-    * @return the output of the activation function
-    */
+/**
+ * Applies the activation function to the given theta value.
+ * Currently, this is a sigmoid activation function (f(theta) = 1 / (1 + e^(-theta))).
+ * This can be modified to implement different activation functions as needed.
+ * @param theta the input value to the activation function
+ * @return the output of the activation function
+ */
    public double activationFunction(double theta)
    {
       return 1.0 / (1.0 + Math.exp(-theta));
    }
 
-   /**
-    * Sets up the input activations for a specific test case index.
-    * @param caseIndex the index of the test case to set up
-    */
+/**
+ * Sets up the input activations for a specific test case index.
+ * @param caseIndex the index of the test case to set up
+ */
    public void setUpTestCase(int caseIndex)
    {
       for (int k = 0; k < numActivationsA; k++)
@@ -437,9 +437,9 @@ public class Network
       }
    }
 
-   /**
-    * Prints the run results, including optionally the network specifics and truth table.
-    */
+/**
+ * Prints the run results, including optionally the network specifics and truth table.
+ */
    public void printRunResults()
    {
       System.out.println("\n---------RUN RESULTS---------");
@@ -453,9 +453,9 @@ public class Network
       }
    } // public void printRunResults()
 
-   /**
-    * Prints the network's weights from the input layer to the hidden layer and from the hidden layer to the output.
-    */
+/**
+ * Prints the network's weights from the input layer to the hidden layer and from the hidden layer to the output.
+ */
    public void printNetworkWeights()
    {
       System.out.println("\n---------NETWORK WEIGHTS---------");
@@ -475,9 +475,9 @@ public class Network
       }
    } // public void printNetworkWeights()
    
-   /**
-    * Prints the input table showing input activations for all test cases.
-    */
+/**
+ * Prints the input table showing input activations for all test cases.
+ */
    public void printInputTable()
    {
       System.out.println("\n---------INPUT TABLE---------");
@@ -493,9 +493,9 @@ public class Network
       }
    } // public void printInputTable()
 
-   /**
-    * Prints the truth table showing input activations, expected output, and actual output for all test cases.
-    */
+/**
+ * Prints the truth table showing input activations, expected output, and actual output for all test cases.
+ */
    public void printTruthTableWithOutputs()
    {
       System.out.println("\n---------TRUTH TABLE---------");
@@ -511,9 +511,9 @@ public class Network
       }
    } // public void printTruthTableWithOutputs()
 
-   /**
-    * Prints the activations of the hidden layer.
-    */
+/**
+ * Prints the activations of the hidden layer.
+ */
    public void printHiddenActivations()
    {
       System.out.println("\n---------HIDDEN ACTIVATIONS---------");
