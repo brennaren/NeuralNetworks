@@ -1,11 +1,11 @@
 /**
- * Main class that runs the A-B-1 neural network based on user configurations that are configured directly in the
+ * Main class that runs the A-B-C neural network based on user configurations that are configured directly in the
  * setManualConfigs() method in Network.java. Configurations will be set to be read from a file in future versions.
  * This class makes the Network set the configuration parameters, allocates memory for training/running, trains/runs 
  * the  Network, and outputs relevant information from running the Network.
  * 
  * @author Brenna Ren
- * @version September 17, 2025
+ * @version September 30, 2025
  * Date of creation: September 5, 2025
  */
 public class Main 

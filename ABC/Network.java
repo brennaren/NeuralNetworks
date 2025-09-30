@@ -3,19 +3,19 @@ import java.io.File;
 import java.io.FileWriter;
 
 /**
- * Network class that implements a simple A-B-1 feedforward neural network with one activation layer,
- * one hidden layer, and one output. It includes methods to set configurations, allocate memory, 
+ * Network class that implements an A-B-C feedforward neural network with one activation layer,
+ * one hidden layer, and an output layer. It includes methods to set configurations, allocate memory, 
  * populate the network with weights, and train or run the network.
  * 
  * @author Brenna Ren
- * @version September 28, 2025
+ * @version September 30, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
 {
    public int numActivationsA;      // number of input activations
    public int numActivationsH;      // number of hidden activations
-   public int numOutputsF;          // number of outputs (always 1 for A-B-1 network)
+   public int numOutputsF;          // number of outputs
 
    public double randomWeightMin;   // minimum random weight value
    public double randomWeightMax;   // maximum random weight value
@@ -36,21 +36,21 @@ public class Network
    
    private double[] a;              // input activations (see design document)
    private double[] h;              // hidden activations (see design document)
-   private double[] F0;             // single output for all test cases (see design document)
+   private double[][] F;            // outputs for all test cases (see design document)
    private double[][] ah_weights;   // weights from the input layer to hidden layer
-   private double[] hF0_weights;    // weights from hidden layer to output
+   private double[][] hF_weights;   // weights from hidden layer to outputs
    private double[] h_thetas;       // theta values for the hidden layer that are calculated while finding the weight deltas
-   private double F0_theta;         // theta value for the output that is calculated while finding the weight deltas 
+   private double[] F_thetas;       // theta values for the output that are calculated while finding the weight deltas 
    private double[] h_omegas;       // omega values for the hidden layer that are calculated while finding the weight deltas
-   private double F0_omega;         // omega value for the output that is calculated while finding the weight deltas 
+   private double[] F_omegas;       // omega values for the outputs that are calculated while finding the weight deltas 
    private double[] h_psis;         // psi values for the hidden layer that are calculated while finding the weight deltas
-   private double F0_psi;           // psi value for the output that is calculated while finding the weight deltas
+   private double[] F_psis;         // psi values for the outputs that are calculated while finding the weight deltas
    
    private double[][] ah_dEdW;   // partial derivatives of the error with respect to weights from input layer to hidden layer
-   private double[] hF0_dEdW;    // partial derivatives of the error with respect to weights from hidden layer to output
+   private double[][] hF_dEdW;   // partial derivatives of the error with respect to weights from hidden layer to outputs
 
    private double[][] ah_deltaWeights; // changes in weights from input layer to hidden layer
-   private double[] hF0_deltaWeights;  // changes in weights from hidden layer to output
+   private double[][] hF_deltaWeights; // changes in weights from hidden layer to outputs
    public String loadWeightsFilePath;  // file path to load weights from
    public String saveWeightsFilePath;  // file path to save weights to
    public boolean saveWeightsToFile;   // whether to save weights to a file after training
@@ -59,7 +59,7 @@ public class Network
    private int iteration;        // current training iteration
 
    private double[][] testCaseInput;   // input values for all test cases
-   private double[] testCaseOutput;    // expected output values for all test cases
+   private double[][] testCaseOutput;  // expected output values for all test cases
 
 /**
  * Initializes the network's variables to default values.
@@ -146,11 +146,14 @@ public class Network
 
       for (int j = 0; j < numActivationsH; j++)
       {
-         if (fileScanner.hasNextDouble())
+         for (int i = 0; i < numOutputsF; i++)
          {
-            hF0_weights[j] = fileScanner.nextDouble();
+            if (fileScanner.hasNextDouble())
+            {
+               hF_weights[j][i] = fileScanner.nextDouble();
+            }
          }
-      }
+      } // for (int j = 0; j < numActivationsH; j++)
 
       fileScanner.close();
    } // public void loadWeightsFromFile()
@@ -191,25 +194,28 @@ public class Network
    {
       a = new double[numActivationsA];
       h = new double[numActivationsH];
-      F0 = new double[numTestCases];
+      F = new double[numTestCases][numOutputsF];
       ah_weights = new double[numActivationsA][numActivationsH];
-      hF0_weights = new double[numActivationsH];
+      hF_weights = new double[numActivationsH][numOutputsF];
       testCaseInput = new double[numTestCases][numActivationsA];
       
       if (printTruthTable)
       {
-         testCaseOutput = new double[numTestCases];
+         testCaseOutput = new double[numTestCases][numOutputsF];
       }
 
       if (isTraining)
       {
          h_thetas = new double[numActivationsH];
+         F_thetas = new double[numOutputsF];
          h_omegas = new double[numActivationsH];
+         F_omegas = new double[numOutputsF];
          h_psis = new double[numActivationsH];
+         F_psis = new double[numOutputsF];
          ah_deltaWeights = new double[numActivationsA][numActivationsH];
-         hF0_deltaWeights = new double[numActivationsH];
+         hF_deltaWeights = new double[numActivationsH][numOutputsF];
          ah_dEdW = new double[numActivationsA][numActivationsH];
-         hF0_dEdW = new double[numActivationsH];
+         hF_dEdW = new double[numActivationsH][numOutputsF];
       } // if (isTraining)
    } // public void allocateNetworkMemory()
 
@@ -245,7 +251,10 @@ public class Network
 
       for (int j = 0; j < numActivationsH; j++)
       {
-         hF0_weights[j] = getRandomValue(randomWeightMin, randomWeightMax);
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            hF_weights[j][i] = getRandomValue(randomWeightMin, randomWeightMax);
+         }
       }
    } // public void fillRandomWeights()
 
@@ -269,19 +278,19 @@ public class Network
    {
       testCaseInput[0][0] = 0.0;
       testCaseInput[0][1] = 0.0;
-      testCaseOutput[0] = 0.0;
+      testCaseOutput[0][0] = 0.0;
 
       testCaseInput[1][0] = 0.0;
       testCaseInput[1][1] = 1.0;
-      testCaseOutput[1] = 1.0;
+      testCaseOutput[1][0] = 1.0;
 
       testCaseInput[2][0] = 1.0;
       testCaseInput[2][1] = 0.0;
-      testCaseOutput[2] = 1.0;
+      testCaseOutput[2][0] = 1.0;
 
       testCaseInput[3][0] = 1.0;
       testCaseInput[3][1] = 1.0;
-      testCaseOutput[3] = 0.0;
+      testCaseOutput[3][0] = 0.0;
    } // public void fillTestCases()
 
 /**
@@ -328,8 +337,14 @@ public class Network
  */
    public double errorFunction(int caseIndex)
    {
-      return 0.5 * (testCaseOutput[caseIndex] - F0[caseIndex]) * (testCaseOutput[caseIndex] - F0[caseIndex]);
-   }
+      double error = 0.0;
+
+      for (int i = 0; i < numOutputsF; i++)
+      {
+         error += (testCaseOutput[caseIndex][i] - F[caseIndex][i]) * (testCaseOutput[caseIndex][i] - F[caseIndex][i]);
+      }
+      return error * 0.5;
+   } // public double errorFunction(int caseIndex)
 
 /**
  * Trains the network for a specific test case index by running the network, updating the delta weights,
@@ -359,7 +374,10 @@ public class Network
 
       for (int j = 0; j < numActivationsH; j++)
       {
-         hF0_weights[j] += hF0_deltaWeights[j];
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            hF_weights[j][i] += hF_deltaWeights[j][i];
+         }
       }
    } // public void updateWeights()
 
@@ -370,19 +388,28 @@ public class Network
  */
    public void updateDeltaWeights(int caseIndex)
    {
-      F0_omega = testCaseOutput[caseIndex] - F0[caseIndex];
-      F0_psi = F0_omega * derivActivationFunction(F0_theta);
-
-      for (int j = 0; j < numActivationsH; j++)
+      for (int i = 0; i < numOutputsF; i++)
       {
-         hF0_dEdW[j] = -h[j] * F0_psi;
-         hF0_deltaWeights[j] = -lambdaValue * hF0_dEdW[j];
+         F_omegas[i] = testCaseOutput[caseIndex][i] - F[caseIndex][i];
+         F_psis[i] = F_omegas[i] * derivActivationFunction(F_thetas[i]);
       }
 
       for (int j = 0; j < numActivationsH; j++)
       {
-         h_omegas[j] = F0_psi * hF0_weights[j];
-         h_psis[j] = h_omegas[j] * derivActivationFunction(h_thetas[j]);
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            hF_dEdW[j][i] = -h[j] * F_psis[i];
+            hF_deltaWeights[j][i] = -lambdaValue * hF_dEdW[j][i];
+         }
+      }
+
+      for (int j = 0; j < numActivationsH; j++)
+      {
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            h_omegas[j] = F_psis[i] * hF_weights[j][i];
+            h_psis[j] = h_omegas[j] * derivActivationFunction(h_thetas[j]);
+         }
       }
 
       for (int k = 0; k < numActivationsA; k++)
@@ -461,12 +488,16 @@ public class Network
          h[j] = activationFunction(h_theta);
       }
 
-      F0_theta = 0.0;
-      for (int j = 0; j < numActivationsH; j++)
+      double F_theta;
+      for (int i = 0; i < numOutputsF; i++)
       {
-         F0_theta += h[j] * hF0_weights[j];
+         F_theta = 0.0;
+         for (int j = 0; j < numActivationsH; j++)
+         {
+            F_theta += h[j] * hF_weights[j][i];
+         }
+         F[caseIndex][i] = activationFunction(F_theta);
       }
-      F0[caseIndex] = activationFunction(F0_theta);
    } // public void runByCase(int caseIndex)
 
 /**
@@ -527,7 +558,10 @@ public class Network
       System.out.println("Weights from Hidden Layer to Output (hF0_weights):");
       for (int j = 0; j < numActivationsH; j++)
       {
-         System.out.printf("hF0_weights[%d]: %.4f\n", j, hF0_weights[j]);
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            System.out.printf("hF_weights[%d][%d]: %.4f\n", j, i, hF_weights[j][i]);
+         }
       }
    } // public void printNetworkWeights()
    
@@ -555,7 +589,7 @@ public class Network
    public void printTruthTableWithOutputs()
    {
       System.out.println("\n---------TRUTH TABLE---------");
-      System.out.println("Inputs | Expected Output | Actual Output");
+      System.out.println("Inputs | Expected Outputs | Actual Outputs");
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
          System.out.print("[");
@@ -563,8 +597,21 @@ public class Network
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][k]);
          }
-         System.out.printf("] | %.2f | %.6f\n", testCaseOutput[caseIndex], F0[caseIndex]);
-      }
+
+         System.out.print("|");
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            System.out.printf(" %.2f", testCaseOutput[caseIndex][i]);
+         }
+
+         System.out.print(" |");
+         for (int i = 0; i < numOutputsF; i++)
+         {
+            System.out.printf(" %.6f", F[caseIndex][i]);
+         }
+         
+         System.out.println("]");
+      } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
    } // public void printTruthTableWithOutputs()
 
 /**
@@ -603,7 +650,10 @@ public class Network
 
          for (int j = 0; j < numActivationsH; j++)
          {
-            writer.write(hF0_weights[j] + "\n");
+            for (int i = 0; i < numOutputsF; i++)
+            {
+               writer.write(hF_weights[j][i] + "\n");
+            }
          }
          writer.close();
       } // try
