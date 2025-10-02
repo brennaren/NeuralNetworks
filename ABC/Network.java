@@ -5,10 +5,11 @@ import java.io.FileWriter;
 /**
  * Network class that implements an A-B-C feedforward neural network with one activation layer,
  * one hidden layer, and an output layer. It includes methods to set configurations, allocate memory, 
- * populate the network with weights, and train or run the network.
+ * populate the network with weights, and train or run the network. The network will be trained using
+ * gradient descent.
  * 
  * @author Brenna Ren
- * @version September 30, 2025
+ * @version October 2, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -51,15 +52,16 @@ public class Network
 
    private double[][] ah_deltaWeights; // changes in weights from input layer to hidden layer
    private double[][] hF_deltaWeights; // changes in weights from hidden layer to outputs
-   public String loadWeightsFilePath;  // file path to load weights from
-   public String saveWeightsFilePath;  // file path to save weights to
-   public boolean saveWeightsToFile;   // whether to save weights to a file after training
+   private String loadWeightsFilePath;  // file path to load weights from
+   private String saveWeightsFilePath;  // file path to save weights to
+   private boolean saveWeightsToFile;   // whether to save weights to a file after training
    
    private double averageError;  // average error across all test cases
    private int iteration;        // current training iteration
 
    private double[][] testCaseInput;   // input values for all test cases
    private double[][] testCaseOutput;  // expected output values for all test cases
+   private String testCasesFilePath;   //  file path to load test cases from
 
 /**
  * Initializes the network's variables to default values.
@@ -82,7 +84,7 @@ public class Network
 
       this.randomWeightMin = -1.5;
       this.randomWeightMax = 1.5;
-      this.maxIterations = 100000;
+      this.maxIterations = 1;
       this.errorThreshold = 0.0002;
       this.lambdaValue = 0.3;
       
@@ -91,16 +93,31 @@ public class Network
       this.printTruthTable = true;
       this.printHiddenActivations = false;
       
-      this.weightConfig = "Random"; // "Load" or "Random"
+      this.weightConfig = "Load"; // "Manual" or "Load" or "Random"
       this.loadWeightsFilePath = "XOR/XOR_weights.txt";
-      this.saveWeightsFilePath = "XOR/saved_XOR_weights.txt";
-      this.saveWeightsToFile = true;
+      this.saveWeightsFilePath = "AND_OR_XOR/saved_AND_OR_XOR_weights.txt";
+      this.saveWeightsToFile = false;
 
       this.isTraining = true;
       this.runAfterTraining = true;
 
       this.numTestCases = 4;
+      this.testCasesFilePath = "XOR/XOR_test_cases.txt";
    } // public void setManualConfigs()
+
+/**
+ * Fills the weights array with manually specified weights.
+ * These values can be changed by modifying this method.
+ */
+   public void fillManualWeights()
+   {
+      ah_weights[0][0] = 0.1;
+      ah_weights[1][0] = 0.2;
+      ah_weights[0][1] = 0.3;
+      ah_weights[1][1] = 0.4;
+      hF_weights[0][0] = 0.5;
+      hF_weights[1][0] = 0.6;
+   }
 
 /**
  * Loads weights from a specified file path into the network's weight arrays.
@@ -133,9 +150,9 @@ public class Network
             "-" + numOutputsF + ").");
       }
 
-      for (int k = 0; k < numActivationsA; k++)
+      for (int j = 0; j < numActivationsH; j++)
       {
-         for (int j = 0; j < numActivationsH; j++)
+         for (int k = 0; k < numActivationsA; k++)
          {
             if (fileScanner.hasNextDouble())
             {
@@ -144,9 +161,9 @@ public class Network
          }
       } // for (int k = 0; k < numActivationsA; k++)
 
-      for (int j = 0; j < numActivationsH; j++)
+      for (int i = 0; i < numOutputsF; i++)
       {
-         for (int i = 0; i < numOutputsF; i++)
+         for (int j = 0; j < numActivationsH; j++)
          {
             if (fileScanner.hasNextDouble())
             {
@@ -225,7 +242,11 @@ public class Network
  */
    public void populateNetwork()
    {
-      if (weightConfig.equals("Load"))
+      if (weightConfig.equals("Manual"))
+      {
+         fillManualWeights();
+      }
+      else if (weightConfig.equals("Load"))
       {
          loadWeightsFromFile();
       }
@@ -233,6 +254,7 @@ public class Network
       {
          fillRandomWeights();
       }
+      printNetworkWeights();
       fillTestCases();
    } // public void populateNetwork()
    
@@ -270,27 +292,56 @@ public class Network
    }
 
 /**
- * Manually populates the test cases for the network.
- * These values can be changed by modifying this method.
- * It is currently set up for 2 input activations.
+ * Loads the test cases for the network from a file (specified in configs).
+ * The file should contain the input values and expected output values for each test case.
+ * If the file cannot be read, an exception is thrown.
+ * The expected format is one test case per line, with input values followed by output values,
+ * all separated by spaces.
  */
    public void fillTestCases()
    {
-      testCaseInput[0][0] = 0.0;
-      testCaseInput[0][1] = 0.0;
-      testCaseOutput[0][0] = 0.0;
+      Scanner fileScanner;
+      try
+      {
+         fileScanner = new Scanner(new File(testCasesFilePath));
+      }
+      catch (Exception e)
+      {
+         throw new IllegalArgumentException("Error: Unable to open file at " + testCasesFilePath);
+      }
 
-      testCaseInput[1][0] = 0.0;
-      testCaseInput[1][1] = 1.0;
-      testCaseOutput[1][0] = 1.0;
+      for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+      {
+         for (int k = 0; k < numActivationsA; k++)
+         {
+            if (fileScanner.hasNextDouble())
+            {
+               testCaseInput[caseIndex][k] = fileScanner.nextDouble();
+            }
+            else
+            {
+               fileScanner.close();
+               throw new IllegalArgumentException("Error: Not enough input values in test cases file.");
+            }
+         } // for (int k = 0; k < numActivationsA; k++)
 
-      testCaseInput[2][0] = 1.0;
-      testCaseInput[2][1] = 0.0;
-      testCaseOutput[2][0] = 1.0;
-
-      testCaseInput[3][0] = 1.0;
-      testCaseInput[3][1] = 1.0;
-      testCaseOutput[3][0] = 0.0;
+         if (printTruthTable)
+         {
+            for (int i = 0; i < numOutputsF; i++)
+            {
+               if (fileScanner.hasNextDouble())
+               {
+                  testCaseOutput[caseIndex][i] = fileScanner.nextDouble();
+               }
+               else
+               {
+                  fileScanner.close();
+                  throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
+               }
+            } // for (int i = 0; i < numOutputsF; i++)
+         } // if (printTruthTable)
+      } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+      fileScanner.close();
    } // public void fillTestCases()
 
 /**
@@ -354,7 +405,7 @@ public class Network
    public void trainByCase(int caseIndex)
    {
       setUpTestCase(caseIndex);
-      runByCase(caseIndex);
+      runForTrainByCase(caseIndex);
       updateDeltaWeights(caseIndex);
       updateWeights();
    }
@@ -436,6 +487,56 @@ public class Network
    }
 
 /**
+ * Applies the activation function to the given theta value.
+ * Currently, this is calls the sigmoid activation function.
+ * This can be modified to implement different activation functions as needed.
+ * @param theta the input value to the activation function
+ * @return the output of the activation function
+ */
+   public double activationFunction(double theta)
+   {
+      return sigmoid(theta);
+   }
+
+/**
+ * Sigmoid activation function: f(x) = 1 / (1 + e^(-x))
+ * @param x the input value to the sigmoid function
+ * @return the output of the sigmoid function
+ */
+   public double sigmoid(double x)
+   {
+      return 1.0 / (1.0 + Math.exp(-x));
+   }
+
+/**
+ * Runs the network for training for a specific test case index, calculating the hidden activations and output.
+ * This saves the theta values, as they are needed during training.
+ * @param caseIndex  the index of the test case to run
+ */
+   public void runForTrainByCase(int caseIndex)
+   {
+      for (int j = 0; j < numActivationsH; j++)
+      {
+         h_thetas[j] = 0.0;
+         for (int k = 0; k < numActivationsA; k++)
+         {
+            h_thetas[j] += a[k] * ah_weights[k][j];
+         }
+         h[j] = activationFunction(h_thetas[j]);
+      }
+
+      for (int i = 0; i < numOutputsF; i++)
+      {
+         F_thetas[i] = 0.0;
+         for (int j = 0; j < numActivationsH; j++)
+         {
+            F_thetas[i] += h[j] * hF_weights[j][i];
+         }
+         F[caseIndex][i] = activationFunction(F_thetas[i]);
+      }
+   } // public void runByCase(int caseIndex)
+
+/**
  * Prints the training results, including the number of iterations, final average error,
  * and optionally the network specifics.
  */
@@ -473,6 +574,7 @@ public class Network
 
 /**
  * Runs the network for a specific test case index, calculating the hidden activations and output.
+ * This does not save the theta values, as they are only needed during training.
  * @param caseIndex  the index of the test case to run
  */
    public void runByCase(int caseIndex)
@@ -499,18 +601,6 @@ public class Network
          F[caseIndex][i] = activationFunction(F_theta);
       }
    } // public void runByCase(int caseIndex)
-
-/**
- * Applies the activation function to the given theta value.
- * Currently, this is a sigmoid activation function (f(theta) = 1 / (1 + e^(-theta))).
- * This can be modified to implement different activation functions as needed.
- * @param theta the input value to the activation function
- * @return the output of the activation function
- */
-   public double activationFunction(double theta)
-   {
-      return 1.0 / (1.0 + Math.exp(-theta));
-   }
 
 /**
  * Sets up the input activations for a specific test case index.
