@@ -1,6 +1,12 @@
 import java.util.Scanner;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * Network class that implements an A-B-C feedforward neural network with one activation layer,
@@ -9,7 +15,7 @@ import java.io.FileWriter;
  * gradient descent.
  * 
  * @author Brenna Ren
- * @version October 6, 2025
+ * @version October 9, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -34,6 +40,7 @@ public class Network
    public boolean runAfterTraining;    // whether to run the network after training
    public boolean saveWeightsToFile;   // whether to save weights to a file after training
 
+   public String testCaseConfig;    // whether to use manually specified test cases or load from a file
    public int numTestCases;         // number of test cases
    
    private double[] a;              // input activations (see design document)
@@ -48,8 +55,8 @@ public class Network
    private double[][] ah_deltaWeights; // changes in weights from input layer to hidden layer
    private double[][] hF_deltaWeights; // changes in weights from hidden layer to outputs
 
-   private String loadWeightsFilePath;  // file path to load weights from
-   private String saveWeightsFilePath;  // file path to save weights to
+   private String loadWeightsFilePath;  // file path to load weights from (binary path)
+   private String saveWeightsFilePath;  // file path to save weights to (binary path)
    private String testCasesFilePath;   //  file path to load test cases from
    
    private double averageError;  // average error across all test cases
@@ -73,7 +80,7 @@ public class Network
  */
    public void setManualConfigs()
    {
-      this.numActivationsA = 2;
+      this.numActivationsA = 3;
       this.numActivationsH = 1;
       this.numOutputsF = 3;
 
@@ -89,13 +96,14 @@ public class Network
       this.printHiddenActivations = false;
       
       this.weightConfig = "Random"; // "Manual" or "Load" or "Random"
-      this.loadWeightsFilePath = "AND_OR_XOR/AND_OR_XOR_weights.txt";
-      this.saveWeightsFilePath = "AND_OR_XOR/saved_AND_OR_XOR_weights.txt";
+      this.loadWeightsFilePath = "AND_OR_XOR/saved_AND_OR_XOR_weights.bin";
+      this.saveWeightsFilePath = "AND_OR_XOR/saved_AND_OR_XOR_weights.bin";
       this.saveWeightsToFile = false;
 
       this.isTraining = true;
       this.runAfterTraining = true;
 
+      this.testCaseConfig = "Manual"; // "Manual" or "File"
       this.numTestCases = 4;
       this.testCasesFilePath = "AND_OR_XOR/AND_OR_XOR_test_cases.txt";
    } // public void setManualConfigs()
@@ -115,59 +123,61 @@ public class Network
    }
 
 /**
- * Loads weights from a specified file path into the network's weight arrays.
- * This method prompts the user to enter the file path.
- * The file should contain the network configuration on the first line,
- * followed by the weights in the appropriate format.
+ * Fills the test cases array with manually specified test cases.
+ * These values can be changed by modifying this method.
+ */
+   public void fillManualTestCases()
+   {
+      testCaseInput[0][0] = 0.0;
+      testCaseInput[0][1] = 0.0;
+      testCaseInput[1][0] = 0.0;
+      testCaseInput[1][1] = 1.0;
+      testCaseInput[2][0] = 1.0;
+      testCaseInput[2][1] = 0.0;
+      testCaseInput[3][0] = 1.0;
+      testCaseInput[3][1] = 1.0;
+
+      testCaseOutput[0][0] = 0.0; // AND
+      testCaseOutput[0][1] = 0.0; // OR
+      testCaseOutput[1][0] = 0.0; // AND
+      testCaseOutput[1][1] = 1.0; // OR
+      testCaseOutput[2][0] = 0.0; // AND
+      testCaseOutput[2][1] = 1.0; // OR
+      testCaseOutput[3][0] = 1.0; // AND
+      testCaseOutput[3][1] = 1.0; // OR
+   }
+
+/**
+ * Loads weights from a specified binary file path into the network's weight arrays.
+ * If the file cannot be read, an exception is thrown.
+ * The expected format is the weights in the appropriate order as doubles.
  */
    public void loadWeightsFromFile()
    {
-      Scanner fileScanner;
-      try
+      try 
       {
-         fileScanner = new Scanner(new File(loadWeightsFilePath));
-      }
+         InputStream inputStream = new FileInputStream(loadWeightsFilePath);
+         DataInput dataInputStream = new DataInputStream(inputStream);
+         for (int k = 0; k < numActivationsA; k++)
+         {
+            for (int j = 0; j < numActivationsH; j++)
+            {
+               ah_weights[k][j] = dataInputStream.readDouble();
+            }
+         }
+         for (int j = 0; j < numActivationsH; j++)
+         {
+            for (int i = 0; i < numOutputsF; i++)
+            {
+               hF_weights[j][i] = dataInputStream.readDouble();
+            }
+         }
+         inputStream.close();
+      } // try
       catch (Exception e)
       {
          throw new IllegalArgumentException("Error: Unable to open file at " + loadWeightsFilePath);
       }
-
-      String networkConfString = fileScanner.nextLine();
-      if (networkConfString.equals(numActivationsA + "-" + numActivationsH + "-" + numOutputsF))
-      {
-         System.out.println("Loading weights for " + networkConfString + " network.");
-      }
-      else
-      {
-         fileScanner.close();
-         throw new IllegalArgumentException("Error: Network configuration in file (" + networkConfString + 
-            ") does not match current network configuration (" + numActivationsA + "-" + numActivationsH + 
-            "-" + numOutputsF + ").");
-      }
-
-      for (int j = 0; j < numActivationsH; j++)
-      {
-         for (int k = 0; k < numActivationsA; k++)
-         {
-            if (fileScanner.hasNextDouble())
-            {
-               ah_weights[k][j] = fileScanner.nextDouble();
-            }
-         }
-      } // for (int k = 0; k < numActivationsA; k++)
-
-      for (int i = 0; i < numOutputsF; i++)
-      {
-         for (int j = 0; j < numActivationsH; j++)
-         {
-            if (fileScanner.hasNextDouble())
-            {
-               hF_weights[j][i] = fileScanner.nextDouble();
-            }
-         }
-      } // for (int j = 0; j < numActivationsH; j++)
-
-      fileScanner.close();
    } // public void loadWeightsFromFile()
 
 /**
@@ -182,6 +192,7 @@ public class Network
       System.out.println("Print Truth Table: " + printTruthTable);
       System.out.println("Print Hidden Activations: " + printHiddenActivations);
       System.out.println("Weight Configuration: " + weightConfig);
+      System.out.println("Test Case Configuration: " + testCaseConfig);
       System.out.println("Mode: " + (isTraining ? "Training" : "Running"));
       System.out.println("Run After Training: " + runAfterTraining);
       System.out.println("Number of Test Cases: " + numTestCases);
@@ -211,7 +222,7 @@ public class Network
       hF_weights = new double[numActivationsH][numOutputsF];
       testCaseInput = new double[numTestCases][numActivationsA];
       
-      if (printTruthTable)
+      if (isTraining || printTruthTable)
       {
          testCaseOutput = new double[numTestCases][numOutputsF];
       }
@@ -244,7 +255,14 @@ public class Network
       {
          fillRandomWeights();
       }
-      fillTestCases();
+      if (testCaseConfig.equals("Manual"))
+      {
+         fillManualTestCases();
+      }
+      else
+      {
+         fillFileTestCases();
+      }
    } // public void populateNetwork()
    
 /**
@@ -287,7 +305,7 @@ public class Network
  * The expected format is one test case per line, with input values followed by output values,
  * all separated by spaces.
  */
-   public void fillTestCases()
+   public void fillFileTestCases()
    {
       Scanner fileScanner;
       try
@@ -314,24 +332,28 @@ public class Network
             }
          } // for (int k = 0; k < numActivationsA; k++)
 
-         if (printTruthTable)
+         for (int i = 0; i < numOutputsF; i++)
          {
-            for (int i = 0; i < numOutputsF; i++)
+            if (fileScanner.hasNextDouble())
             {
-               if (fileScanner.hasNextDouble())
+               if (isTraining || printTruthTable)
                {
                   testCaseOutput[caseIndex][i] = fileScanner.nextDouble();
                }
                else
                {
-                  fileScanner.close();
-                  throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
+                  System.out.println(fileScanner.nextDouble());
                }
-            } // for (int i = 0; i < numOutputsF; i++)
-         } // if (printTruthTable)
+            } // if (fileScanner.hasNextDouble())
+            else
+            {
+               fileScanner.close();
+               throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
+            }
+         } // for (int i = 0; i < numOutputsF; i++)
       } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       fileScanner.close();
-   } // public void fillTestCases()
+   } // public void fillFileTestCases()
 
 /**
  * Trains the network using all training data until the average error is below the error threshold
@@ -731,39 +753,35 @@ public class Network
    }
 
 /**
- * Saves the current weights of the network to a specified file path.
- * The file will contain the network configuration on the first line,
- * followed by the weights in the appropriate format.
+ * Saves the current weights of the network to a specified binary file path.
+ * The file will contain the weights in the appropriate format.
+ * If the file cannot be written to, an exception is thrown.
  */
    public void saveWeightsToFile()
    {
-      FileWriter writer;
       try
       {
-         writer = new FileWriter(saveWeightsFilePath);
-
-         writer.write(numActivationsA + "-" + numActivationsH + "-" + numOutputsF + "\n");
-         
+         OutputStream outputStream = new FileOutputStream(saveWeightsFilePath);
+         DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
          for (int k = 0; k < numActivationsA; k++)
          {
             for (int j = 0; j < numActivationsH; j++)
             {
-               writer.write(ah_weights[k][j] + "\n");
+               dataOutputStream.writeDouble(ah_weights[k][j]);
             }
          }
-
          for (int j = 0; j < numActivationsH; j++)
          {
             for (int i = 0; i < numOutputsF; i++)
             {
-               writer.write(hF_weights[j][i] + "\n");
+               dataOutputStream.writeDouble(hF_weights[j][i]);
             }
          }
-         writer.close();
+         outputStream.close();
       } // try
       catch (Exception e)
       {
-         System.out.println("Error: Unable to write to file at " + saveWeightsFilePath);
+         throw new IllegalArgumentException("Error: Unable to open file at " + saveWeightsFilePath);
       }
    } // saveWeightsToFile()
 } // public class Network
