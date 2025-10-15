@@ -263,6 +263,7 @@ public class Network
       {
          fillRandomWeights();
       }
+
       if (testCaseConfig.equals("Manual"))
       {
          fillManualTestCases();
@@ -725,6 +726,7 @@ public class Network
                dataOutputStream.writeDouble(ah_weights[k][j]);
             }
          }
+         
          for (int j = 0; j < numActivationsH; j++)
          {
             for (int i = 0; i < numOutputsF; i++)
