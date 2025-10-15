@@ -15,11 +15,13 @@ import java.io.OutputStream;
  * gradient descent and with back propagation.
  * 
  * @author Brenna Ren
- * @version October 13, 2025
+ * @version October 15, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
 {
+   public final static String DEFAULT_CONFIG_FILE_PATH = "defaultConfigs.json"; // default config file path
+
    public int numActivationsA;      // number of input activations
    public int numActivationsH;      // number of hidden activations
    public int numOutputsF;          // number of outputs
@@ -52,13 +54,12 @@ public class Network
    private double[] F_thetas;       // theta values for the output that are calculated while finding the weight deltas 
    private double[] F_psis;         // psi values for the outputs that are calculated while finding the weight deltas
 
-   private double[][] ah_deltaWeights; // changes in weights from input layer to hidden layer
-   private double[][] hF_deltaWeights; // changes in weights from hidden layer to outputs
-
-   private String loadWeightsFilePath;  // file path to load weights from (binary path)
-   private String saveWeightsFilePath;  // file path to save weights to (binary path)
+   public String configFilePath;       // file path to load configurations from
+   private String loadWeightsFilePath; // file path to load weights from (binary path)
+   private String saveWeightsFilePath; // file path to save weights to (binary path)
    private String testCasesFilePath;   //  file path to load test cases from
    
+   private double totalError;    // total error across all test cases
    private double averageError;  // average error across all test cases
    private int iteration;        // current training iteration
 
@@ -108,6 +109,15 @@ public class Network
       this.testCasesFilePath = "AND_OR_XOR/AND_OR_XOR_test_cases.txt";
    } // public void setManualConfigs()
 
+/**
+ * Loads the network configurations from a specified JSON file path.
+ * If the file cannot be read, an exception is thrown.
+ * The expected format is JSON with keys matching the configuration variable names.
+ */
+   public void loadConfigsFromFile()
+   {
+      //TODO: Implement JSON parsing to load configurations from file
+   }
 /**
  * Fills the weights array with manually specified weights.
  * These values can be changed by modifying this method.
@@ -232,8 +242,6 @@ public class Network
          h_thetas = new double[numActivationsH];
          F_thetas = new double[numOutputsF];
          F_psis = new double[numOutputsF];
-         ah_deltaWeights = new double[numActivationsA][numActivationsH];
-         hF_deltaWeights = new double[numActivationsH][numOutputsF];
       } // if (isTraining)
    } // public void allocateNetworkMemory()
 
@@ -363,102 +371,49 @@ public class Network
    {
       while (averageError > errorThreshold && iteration < maxIterations)
       {
-         double totalError = 0.0;
+         totalError = 0.0;
+
          for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
          {
-            trainByCase(caseIndex);
-            totalError += errorFunction(caseIndex);
+            setUpTestCase(caseIndex);
+            runForTrainByCase(caseIndex);
+            updateWeights(caseIndex);
          }
+
+         totalError /= 2.0;
          iteration++;
          averageError = totalError / numTestCases;
-      }
+      } // while (averageError > errorThreshold && iteration < maxIterations)
    } // public void trainAll()
 
-/**
- * Calculates the error for a specific test case index using the formula:
- * E = 0.5 * (target - output)^2
- * @param caseIndex the index of the test case to use
- * @return the calculated error as a double
- */
-   public double errorFunction(int caseIndex)
-   {
-      double error = 0.0;
-
-      for (int i = 0; i < numOutputsF; i++)
-      {
-         error += (testCaseOutput[caseIndex][i] - F[i]) * (testCaseOutput[caseIndex][i] - F[i]);
-      }
-      return error * 0.5;
-   } // public double errorFunction(int caseIndex)
 
 /**
- * Trains the network for a specific test case index by running the network, updating the delta weights,
- * and then updating the weights.
+ * Updates the weights for the network based on the calculated psis from the outputs and the activations.
+ * Uses the calculations outlined in the design document. Stores only the psis and weights.
  * @param caseIndex the index of the test case to use
  */
-   public void trainByCase(int caseIndex)
+   public void updateWeights(int caseIndex)
    {
-      setUpTestCase(caseIndex);
-      runForTrainByCase(caseIndex);
-      updateDeltaWeights(caseIndex);
-      updateWeights();
-   }
-
-/**
- * Updates the network's weights by adding the calculated delta weights to the current weights.
- */
-   public void updateWeights()
-   {
-      for (int k = 0; k < numActivationsA; k++)
-      {
-         for (int j = 0; j < numActivationsH; j++)
-         {
-            ah_weights[k][j] += ah_deltaWeights[k][j];
-         }
-      }
-
-      for (int j = 0; j < numActivationsH; j++)
-      {
-         for (int i = 0; i < numOutputsF; i++)
-         {
-            hF_weights[j][i] += hF_deltaWeights[j][i];
-         }
-      }
-   } // public void updateWeights()
-
-/**
- * Calculates the delta weights for the network based on the output error for a specific test case.
- * Uses the calculations outlined in the design document. Stores only the psis and delta weights.
- * @param caseIndex the index of the test case to use
- */
-   public void updateDeltaWeights(int caseIndex)
-   {
-      for (int i = 0; i < numOutputsF; i++)
-      {
-         for (int j = 0; j < numActivationsH; j++)
-         {
-            double hF_dEdW = -h[j] * F_psis[i];
-            hF_deltaWeights[j][i] = -lambdaValue * hF_dEdW;
-         }
-      } // for (int i = 0; i < numOutputsF; i++)
-
       for (int j = 0; j < numActivationsH; j++)
       {
          double h_omega = 0.0;
+
          for (int i = 0; i < numOutputsF; i++)
          {
             h_omega += F_psis[i] * hF_weights[j][i];
+            double hF_deltaWeight = lambdaValue * h[j] * F_psis[i];
+            hF_weights[j][i] += hF_deltaWeight;
          }
          
          double h_psi = h_omega * derivActivationFunction(h_thetas[j]);
 
          for (int k = 0; k < numActivationsA; k++)
          {
-            double ah_dEdW = -a[k] * h_psi;
-            ah_deltaWeights[k][j] = -lambdaValue * ah_dEdW;
+            double ah_deltaWeight = lambdaValue * a[k] * h_psi;
+            ah_weights[k][j] += ah_deltaWeight;
          }
       } // for (int j = 0; j < numActivationsH; j++)
-   } // public void updateDeltaWeights(int caseIndex)
+   } // public void updateWeights(int caseIndex)
 
 /**
  * Calculates the derivative of the activation function.
@@ -532,6 +487,7 @@ public class Network
          F[i] = activationFunction(F_thetas[i]);
          double F_omega = testCaseOutput[caseIndex][i] - F[i];
          F_psis[i] = F_omega * derivActivationFunction(F_thetas[i]);
+         totalError += F_omega * F_omega;
       }
    } // public void runByCase(int caseIndex)
 

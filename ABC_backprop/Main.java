@@ -22,8 +22,19 @@ public class Main
    public static void main(String[] args) 
    {
       Network network = new Network();
+
       network.initializeVariables();
-      network.setManualConfigs();
+
+      if (args.length > 0)
+      {
+         network.configFilePath = args[0];
+      }
+      else
+      {
+         network.configFilePath = Network.DEFAULT_CONFIG_FILE_PATH;
+      }
+
+      network.loadConfigsFromFile();
       network.printNetworkConfigs();
 
       if (network.isTraining)
