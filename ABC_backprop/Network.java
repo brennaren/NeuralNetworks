@@ -1,3 +1,4 @@
+import java.util.Properties;
 import java.util.Scanner;
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -20,7 +21,7 @@ import java.io.OutputStream;
  */
 public class Network 
 {
-   public final static String DEFAULT_CONFIG_FILE_PATH = "defaultConfigs.json"; // default config file path
+   public final static String DEFAULT_CONFIG_FILE_PATH = "defaultConfigs.properties";  // default config file path
 
    public int numActivationsA;      // number of input activations
    public int numActivationsH;      // number of hidden activations
@@ -110,14 +111,50 @@ public class Network
    } // public void setManualConfigs()
 
 /**
- * Loads the network configurations from a specified JSON file path.
+ * Loads the network configurations from a specified .properties file path.
  * If the file cannot be read, an exception is thrown.
- * The expected format is JSON with keys matching the configuration variable names.
+ * The expected format is .properties with keys matching the configuration variable names.
  */
    public void loadConfigsFromFile()
    {
-      //TODO: Implement JSON parsing to load configurations from file
-   }
+      try
+      {
+         Properties props = new Properties();
+         InputStream input = new FileInputStream(configFilePath);
+         props.load(input);
+
+         this.numActivationsA = Integer.parseInt(props.getProperty("numActivationsA"));
+         this.numActivationsH = Integer.parseInt(props.getProperty("numActivationsH"));
+         this.numOutputsF = Integer.parseInt(props.getProperty("numOutputsF"));
+
+         this.randomWeightMin = Double.parseDouble(props.getProperty("randomWeightMin"));
+         this.randomWeightMax = Double.parseDouble(props.getProperty("randomWeightMax"));
+         this.maxIterations = Integer.parseInt(props.getProperty("maxIterations"));
+         this.errorThreshold = Double.parseDouble(props.getProperty("errorThreshold"));
+         this.lambdaValue = Double.parseDouble(props.getProperty("lambdaValue"));
+
+         this.printNetworkSpecifics = Boolean.parseBoolean(props.getProperty("printNetworkSpecifics"));
+         this.printInputTable = Boolean.parseBoolean(props.getProperty("printInputTable"));
+         this.printTruthTable = Boolean.parseBoolean(props.getProperty("printTruthTable"));
+         this.printHiddenActivations = Boolean.parseBoolean(props.getProperty("printHiddenActivations"));
+
+         this.weightConfig = props.getProperty("weightConfig");
+         this.loadWeightsFilePath = props.getProperty("loadWeightsFilePath");
+         this.saveWeightsFilePath = props.getProperty("saveWeightsFilePath");
+         this.saveWeightsToFile = Boolean.parseBoolean(props.getProperty("saveWeightsToFile"));
+
+         this.isTraining = Boolean.parseBoolean(props.getProperty("isTraining"));
+         this.runAfterTraining = Boolean.parseBoolean(props.getProperty("runAfterTraining"));
+
+         this.testCaseConfig = props.getProperty("testCaseConfig");
+         this.numTestCases = Integer.parseInt(props.getProperty("numTestCases"));
+         this.testCasesFilePath = props.getProperty("testCasesFilePath");
+      } // try
+      catch (Exception e)
+      {
+         throw new IllegalArgumentException("Error: Unable to open file at " + configFilePath);
+      }
+   } // public void loadConfigsFromFile()
 /**
  * Fills the weights array with manually specified weights.
  * These values can be changed by modifying this method.
