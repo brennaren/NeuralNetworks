@@ -10,13 +10,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Network class that implements an A-B-C feedforward neural network with one activation layer,
+ * Network class that implements an A-B-C feed forward neural network with one activation layer,
  * one hidden layer, and an output layer. It includes methods to set configurations, allocate memory, 
- * populate the network with weights, and train or run the network. The network will be trained using
- * gradient descent and with back propagation.
+ * populate the network with weights, train or run the network, and output the results. The network will 
+ * be trained using gradient descent and with back propagation.
  * 
  * @author Brenna Ren
- * @version October 15, 2025
+ * @version October 17, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -58,7 +58,8 @@ public class Network
    public String configFilePath;       // file path to load configurations from
    private String loadWeightsFilePath; // file path to load weights from (binary path)
    private String saveWeightsFilePath; // file path to save weights to (binary path)
-   private String testCasesFilePath;   //  file path to load test cases from
+   private String inputsFilePath;      //  file path to load test cases from
+   private String outputsFilePath;     // file path to load expected outputs from
    
    private double totalError;    // total error across all test cases
    private double averageError;  // average error across all test cases
@@ -107,7 +108,8 @@ public class Network
 
       this.testCaseConfig = "File"; // "Manual" or "File"
       this.numTestCases = 4;
-      this.testCasesFilePath = "AND_OR_XOR/AND_OR_XOR_test_cases.txt";
+      this.inputsFilePath = "AND_OR_XOR/AND_OR_XOR_inputs.txt";
+      this.outputsFilePath = "AND_OR_XOR/AND_OR_XOR_outputs.txt";
    } // public void setManualConfigs()
 
 /**
@@ -148,13 +150,15 @@ public class Network
 
          this.testCaseConfig = props.getProperty("testCaseConfig");
          this.numTestCases = Integer.parseInt(props.getProperty("numTestCases"));
-         this.testCasesFilePath = props.getProperty("testCasesFilePath");
+         this.inputsFilePath = props.getProperty("inputsFilePath");
+         this.outputsFilePath = props.getProperty("outputsFilePath");
       } // try
       catch (Exception e)
       {
          throw new IllegalArgumentException("Error: Unable to open file at " + configFilePath);
       }
    } // public void loadConfigsFromFile()
+
 /**
  * Fills the weights array with manually specified weights.
  * These values can be changed by modifying this method.
@@ -197,7 +201,8 @@ public class Network
 /**
  * Loads weights from a specified binary file path into the network's weight arrays.
  * If the file cannot be read, an exception is thrown.
- * The expected format is the weights in the appropriate order as doubles.
+ * The expected format is the network configuration, followed by the weights 
+ * in the appropriate order as doubles.
  */
    public void loadWeightsFromFile()
    {
@@ -205,6 +210,16 @@ public class Network
       {
          InputStream inputStream = new FileInputStream(loadWeightsFilePath);
          DataInput dataInputStream = new DataInputStream(inputStream);
+
+         String fileNetworkConfig = dataInputStream.readUTF();
+         String actualNetworkConfig = numActivationsA + "-" + numActivationsH + "-" + numOutputsF;
+
+         if (!fileNetworkConfig.equals(actualNetworkConfig))
+         {
+            inputStream.close();
+            throw new IllegalArgumentException("Error: Weight configuration in file does not match network configuration.");
+         }
+
          for (int k = 0; k < numActivationsA; k++)
          {
             for (int j = 0; j < numActivationsH; j++)
@@ -212,6 +227,7 @@ public class Network
                ah_weights[k][j] = dataInputStream.readDouble();
             }
          }
+
          for (int j = 0; j < numActivationsH; j++)
          {
             for (int i = 0; i < numOutputsF; i++)
@@ -219,6 +235,7 @@ public class Network
                hF_weights[j][i] = dataInputStream.readDouble();
             }
          }
+
          inputStream.close();
       } // try
       catch (Exception e)
@@ -353,52 +370,64 @@ public class Network
  */
    public void fillFileTestCases()
    {
-      Scanner fileScanner;
+      Scanner inputFileScanner;
       try
       {
-         fileScanner = new Scanner(new File(testCasesFilePath));
+         inputFileScanner = new Scanner(new File(inputsFilePath));
       }
       catch (Exception e)
       {
-         throw new IllegalArgumentException("Error: Unable to open file at " + testCasesFilePath);
+         throw new IllegalArgumentException("Error: Unable to open file at " + inputsFilePath);
       }
 
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
          for (int k = 0; k < numActivationsA; k++)
          {
-            if (fileScanner.hasNextDouble())
+            if (inputFileScanner.hasNextDouble())
             {
-               testCaseInput[caseIndex][k] = fileScanner.nextDouble();
+               testCaseInput[caseIndex][k] = inputFileScanner.nextDouble();
             }
             else
             {
-               fileScanner.close();
+               inputFileScanner.close();
                throw new IllegalArgumentException("Error: Not enough input values in test cases file.");
             }
          } // for (int k = 0; k < numActivationsA; k++)
+      } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
 
-         for (int i = 0; i < numOutputsF; i++)
+      inputFileScanner.close();
+      Scanner outputFileScanner;
+
+      if (isTraining || printTruthTable)
+      {
+         try
          {
-            if (fileScanner.hasNextDouble())
+            outputFileScanner = new Scanner(new File(outputsFilePath));
+         }
+         catch (Exception e)
+         {
+            throw new IllegalArgumentException("Error: Unable to open file at " + outputsFilePath);
+         }
+
+         for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+         {
+            for (int i = 0; i < numOutputsF; i++)
             {
-               if (isTraining || printTruthTable)
+               if (outputFileScanner.hasNextDouble())
                {
-                  testCaseOutput[caseIndex][i] = fileScanner.nextDouble();
-               }
+                  testCaseOutput[caseIndex][i] = outputFileScanner.nextDouble();
+               } // if (fileScanner.hasNextDouble())
                else
                {
-                  System.out.println(fileScanner.nextDouble());
+                  outputFileScanner.close();
+                  throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
                }
-            } // if (fileScanner.hasNextDouble())
-            else
-            {
-               fileScanner.close();
-               throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
-            }
-         } // for (int i = 0; i < numOutputsF; i++)
-      } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
-      fileScanner.close();
+            } // for (int i = 0; i < numOutputsF; i++)
+         } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+
+         outputFileScanner.close();
+      } // if (isTraining || printTruthTable)
    } // public void fillFileTestCases()
 
 /**
@@ -455,7 +484,6 @@ public class Network
 
 /**
  * Calculates the derivative of the activation function.
- * Currently, this is the derivative of the sigmoid activation function.
  * This can be modified to implement different activation functions as needed.
  * @param theta the input value to the derivative of the activation function
  * @return the output of the derivative of the activation function
@@ -467,7 +495,6 @@ public class Network
 
 /**
  * Applies the activation function to the given theta value.
- * Currently, this is calls the sigmoid activation function.
  * This can be modified to implement different activation functions as needed.
  * @param theta the input value to the activation function
  * @return the output of the activation function
@@ -499,6 +526,30 @@ public class Network
    }
 
 /**
+ * Hyperbolic tangent activation function tanh(x) = (e^x - e^-x) / (e^x + e^-x).
+ * Modified to prevent NAN errors for large values of abs(x). See design document for details.
+ * @param x the input value to the tanh function
+ * @return the output of the tanh function
+ */
+   public double tanh(double x)
+   {
+      double epsilon = (x>0)?1.0:-1.0;
+      double epsilonExp = Math.exp(epsilon * 2.0 * x);
+      return epsilon * ((epsilonExp - 1) / (epsilonExp + 1));
+   }
+
+/**
+ * Derivative of the tanh function: f'(x) = 1 - (f(x))^2 where f(x) is the tanh function.
+ * @param x the input value to the derivative of the tanh function
+ * @return the output of the derivative of the tanh function
+ */
+   public double derivTanh(double x)
+   {
+      double tanhValue = tanh(x);
+      return 1.0 - (tanhValue * tanhValue);
+   }
+
+/**
  * Runs the network for training for a specific test case index, calculating the hidden activations and output.
  * This saves the theta values, as they are needed during training.
  * @param caseIndex  the index of the test case to run
@@ -508,20 +559,24 @@ public class Network
       for (int j = 0; j < numActivationsH; j++)
       {
          h_thetas[j] = 0.0;
+
          for (int k = 0; k < numActivationsA; k++)
          {
             h_thetas[j] += a[k] * ah_weights[k][j];
          }
+
          h[j] = activationFunction(h_thetas[j]);
       }
 
       for (int i = 0; i < numOutputsF; i++)
       {
          F_thetas[i] = 0.0;
+
          for (int j = 0; j < numActivationsH; j++)
          {
             F_thetas[i] += h[j] * hF_weights[j][i];
          }
+
          F[i] = activationFunction(F_thetas[i]);
          double F_omega = testCaseOutput[caseIndex][i] - F[i];
          F_psis[i] = F_omega * derivActivationFunction(F_thetas[i]);
@@ -537,8 +592,9 @@ public class Network
    {
       System.out.println("\n---------TRAINING RESULTS---------");
       System.out.println("Iterations: " + iteration);
-      System.out.printf("Final Average Error: %.4f\n", averageError);
+      System.out.printf("Final Average Error: %.6f\n", averageError);
       System.out.print("Reason: ");
+      
       if (averageError <= errorThreshold)
       {
          System.out.println("Error threshold reached.");
@@ -547,6 +603,7 @@ public class Network
       {
          System.out.println("Maximum iterations reached.");
       }
+      
       if (printNetworkSpecifics)
       {
          printNetworkWeights();
@@ -575,20 +632,24 @@ public class Network
       for (int j = 0; j < numActivationsH; j++)
       {
          double h_theta = 0.0;
+
          for (int k = 0; k < numActivationsA; k++)
          {
             h_theta += a[k] * ah_weights[k][j];
          }
+
          h[j] = activationFunction(h_theta);
       }
 
       for (int i = 0; i < numOutputsF; i++)
       {
          double F_theta = 0.0;
+
          for (int j = 0; j < numActivationsH; j++)
          {
             F_theta += h[j] * hF_weights[j][i];
          }
+         
          F[i] = activationFunction(F_theta);
       }
    } // public void runByCase(int caseIndex)
@@ -611,6 +672,7 @@ public class Network
    public void printRunResults()
    {
       System.out.println("\n---------RUN RESULTS---------");
+
       if (printNetworkSpecifics)
       {
          printNetworkWeights();
@@ -633,6 +695,7 @@ public class Network
    {
       System.out.println("\n---------NETWORK WEIGHTS---------");
       System.out.println("Weights from Input Layer to Hidden Layer (ah_weights):");
+
       for (int k = 0; k < numActivationsA; k++)
       {
          for (int j = 0; j < numActivationsH; j++)
@@ -642,6 +705,7 @@ public class Network
       }
 
       System.out.println("Weights from Hidden Layer to Output (hF0_weights):");
+
       for (int j = 0; j < numActivationsH; j++)
       {
          for (int i = 0; i < numOutputsF; i++)
@@ -658,9 +722,11 @@ public class Network
    {
       System.out.println("\n---------INPUT TABLE---------");
       System.out.println("Inputs");
+
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
          System.out.print("[");
+
          for (int k = 0; k < numActivationsA; k++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][k]);
@@ -683,18 +749,21 @@ public class Network
          setUpTestCase(caseIndex);
          runByCase(caseIndex);
          System.out.print("[");
+
          for (int k = 0; k < numActivationsA; k++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][k]);
          }
 
          System.out.print("|");
+
          for (int i = 0; i < numOutputsF; i++)
          {
             System.out.printf(" %.2f", testCaseOutput[caseIndex][i]);
          }
 
          System.out.print(" |");
+
          for (int i = 0; i < numOutputsF; i++)
          {
             System.out.printf(" %.4f", F[i]);
@@ -717,13 +786,16 @@ public class Network
       {
          setUpTestCase(caseIndex);
          runByCase(caseIndex);
+
          System.out.print("[");
+
          for (int k = 0; k < numActivationsA; k++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][k]);
          }
 
          System.out.print("|");
+
          for (int i = 0; i < numOutputsF; i++)
          {
             System.out.printf(" %.4f", F[i]);
@@ -739,6 +811,7 @@ public class Network
    public void printHiddenActivations()
    {
       System.out.println("\n---------HIDDEN ACTIVATIONS---------");
+      
       for (int j = 0; j < numActivationsH; j++)
       {
          System.out.printf("h_activations[%d]: %.4f\n", j, h[j]);
@@ -747,7 +820,9 @@ public class Network
 
 /**
  * Saves the current weights of the network to a specified binary file path.
- * The file will contain the weights in the appropriate format.
+ * The file will first contain the network configuration (A-B-C where A, B, and C 
+ * are numbers corresponding to the configuration), followed by the weights in the 
+ * appropriate order as doubles.
  * If the file cannot be written to, an exception is thrown.
  */
    public void saveWeightsToFile()
@@ -756,6 +831,10 @@ public class Network
       {
          OutputStream outputStream = new FileOutputStream(saveWeightsFilePath);
          DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+
+         String networkConfig = numActivationsA + "-" + numActivationsH + "-" + numOutputsF;
+         dataOutputStream.writeUTF(networkConfig);
+
          for (int k = 0; k < numActivationsA; k++)
          {
             for (int j = 0; j < numActivationsH; j++)
