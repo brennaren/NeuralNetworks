@@ -16,7 +16,7 @@ import java.io.OutputStream;
  * be trained using gradient descent and with back propagation.
  * 
  * @author Brenna Ren
- * @version October 17, 2025
+ * @version October 21, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -56,10 +56,10 @@ public class Network
    private double[] F_psis;         // psi values for the outputs that are calculated while finding the weight deltas
 
    public String configFilePath;       // file path to load configurations from
-   private String loadWeightsFilePath; // file path to load weights from (binary path)
-   private String saveWeightsFilePath; // file path to save weights to (binary path)
-   private String inputsFilePath;      //  file path to load test cases from
-   private String outputsFilePath;     // file path to load expected outputs from
+   public String loadWeightsFilePath;  // file path to load weights from (binary path)
+   public String saveWeightsFilePath;  // file path to save weights to (binary path)
+   public String inputsFilePath;       //  file path to load test cases from
+   public String outputsFilePath;      // file path to load expected outputs from
    
    private double totalError;    // total error across all test cases
    private double averageError;  // average error across all test cases
@@ -67,6 +67,9 @@ public class Network
 
    private double[][] testCaseInput;   // input values for all test cases
    private double[][] testCaseOutput;  // expected output values for all test cases
+
+   private double startTime;  // for timing training/running
+   private double endTime;    // for timing training/running
 
 /**
  * Initializes the network's variables to default values.
@@ -250,6 +253,7 @@ public class Network
    public void printNetworkConfigs()
    {
       System.out.println("\n---------NETWORK CONFIGURATIONS---------");
+      System.out.println("Configurations File Path: " + configFilePath);
       System.out.println("Type of Network: " + numActivationsA + "-" + numActivationsH + "-" + numOutputsF);
       System.out.println("Print Network Specifics: " + printNetworkSpecifics);
       System.out.println("Print Input Table: " + printInputTable);
@@ -436,6 +440,8 @@ public class Network
  */
    public void trainAll()
    {
+      startTimer();
+      
       while (averageError > errorThreshold && iteration < maxIterations)
       {
          totalError = 0.0;
@@ -451,6 +457,8 @@ public class Network
          iteration++;
          averageError = totalError / numTestCases;
       } // while (averageError > errorThreshold && iteration < maxIterations)
+      
+      endTimer();
    } // public void trainAll()
 
 
@@ -593,6 +601,7 @@ public class Network
       System.out.println("\n---------TRAINING RESULTS---------");
       System.out.println("Iterations: " + iteration);
       System.out.printf("Final Average Error: %.6f\n", averageError);
+      System.out.printf("Training Time: %.0f milliseconds\n", (endTime - startTime));
       System.out.print("Reason: ");
       
       if (averageError <= errorThreshold)
@@ -615,11 +624,15 @@ public class Network
  */
    public void runAll()
    {
+      startTimer();
+
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
          setUpTestCase(caseIndex);
          runByCase(caseIndex);
       }
+
+      endTimer();
    } // public void runAll()
 
 /**
@@ -672,6 +685,7 @@ public class Network
    public void printRunResults()
    {
       System.out.println("\n---------RUN RESULTS---------");
+      System.out.printf("Run Time: %.0f milliseconds\n", (endTime - startTime));
 
       if (printNetworkSpecifics)
       {
@@ -766,7 +780,7 @@ public class Network
 
          for (int i = 0; i < numOutputsF; i++)
          {
-            System.out.printf(" %.4f", F[i]);
+            System.out.printf(" %.17f", F[i]);
          }
          
          System.out.println("]");
@@ -798,7 +812,7 @@ public class Network
 
          for (int i = 0; i < numOutputsF; i++)
          {
-            System.out.printf(" %.4f", F[i]);
+            System.out.printf(" %.17f", F[i]);
          }
          
          System.out.println("]");
@@ -857,4 +871,20 @@ public class Network
          throw new IllegalArgumentException("Error: Unable to open file at " + saveWeightsFilePath);
       }
    } // saveWeightsToFile()
+
+/**
+ * Starts the timer by recording the current system time in milliseconds.
+ */
+   public void startTimer()
+   {
+      startTime = System.currentTimeMillis();
+   }
+
+/**
+ * Ends the timer by recording the current system time in milliseconds.
+ */
+   public void endTimer()
+   {
+      endTime = System.currentTimeMillis();
+   }
 } // public class Network
