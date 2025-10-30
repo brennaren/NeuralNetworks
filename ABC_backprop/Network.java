@@ -52,7 +52,6 @@ public class Network
    private double[][] ah_weights;   // weights from the input layer to hidden layer
    private double[][] hF_weights;   // weights from hidden layer to outputs
    private double[] h_thetas;       // theta values for the hidden layer that are calculated while finding the weight deltas
-   private double[] F_thetas;       // theta values for the output that are calculated while finding the weight deltas 
    private double[] F_psis;         // psi values for the outputs that are calculated while finding the weight deltas
 
    public String configFilePath;       // file path to load configurations from
@@ -61,7 +60,6 @@ public class Network
    public String inputsFilePath;       //  file path to load test cases from
    public String outputsFilePath;      // file path to load expected outputs from
    
-   private double totalError;    // total error across all test cases
    private double averageError;  // average error across all test cases
    private int iteration;        // current training iteration
 
@@ -298,7 +296,6 @@ public class Network
       if (isTraining)
       {
          h_thetas = new double[numActivationsH];
-         F_thetas = new double[numOutputsF];
          F_psis = new double[numOutputsF];
       } // if (isTraining)
    } // public void allocateNetworkMemory()
@@ -440,16 +437,14 @@ public class Network
  */
    public void trainAll()
    {
-      startTimer();
-      
       while (averageError > errorThreshold && iteration < maxIterations)
       {
-         totalError = 0.0;
+         double totalError = 0.0;
 
          for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
          {
             setUpTestCase(caseIndex);
-            runForTrainByCase(caseIndex);
+            totalError += runForTrainByCase(caseIndex);
             updateWeights(caseIndex);
          }
 
@@ -457,8 +452,6 @@ public class Network
          iteration++;
          averageError = totalError / numTestCases;
       } // while (averageError > errorThreshold && iteration < maxIterations)
-      
-      endTimer();
    } // public void trainAll()
 
 
@@ -541,9 +534,9 @@ public class Network
  */
    public double tanh(double x)
    {
-      double epsilon = (x>0)?1.0:-1.0;
+      double epsilon = (x > 0) ? 1.0 : -1.0;
       double epsilonExp = Math.exp(epsilon * 2.0 * x);
-      return epsilon * ((epsilonExp - 1) / (epsilonExp + 1));
+      return epsilon * ((epsilonExp - 1.0) / (epsilonExp + 1.0));
    }
 
 /**
@@ -562,8 +555,9 @@ public class Network
  * This saves the theta values, as they are needed during training.
  * @param caseIndex  the index of the test case to run
  */
-   public void runForTrainByCase(int caseIndex)
+   public double runForTrainByCase(int caseIndex)
    {
+      double error = 0.0;
       for (int j = 0; j < numActivationsH; j++)
       {
          h_thetas[j] = 0.0;
@@ -578,18 +572,19 @@ public class Network
 
       for (int i = 0; i < numOutputsF; i++)
       {
-         F_thetas[i] = 0.0;
+         double F_theta = 0.0;
 
          for (int j = 0; j < numActivationsH; j++)
          {
-            F_thetas[i] += h[j] * hF_weights[j][i];
+            F_theta += h[j] * hF_weights[j][i];
          }
 
-         F[i] = activationFunction(F_thetas[i]);
+         F[i] = activationFunction(F_theta);
          double F_omega = testCaseOutput[caseIndex][i] - F[i];
-         F_psis[i] = F_omega * derivActivationFunction(F_thetas[i]);
-         totalError += F_omega * F_omega;
+         F_psis[i] = F_omega * derivActivationFunction(F_theta);
+         error += F_omega * F_omega;
       }
+      return error;
    } // public void runByCase(int caseIndex)
 
 /**

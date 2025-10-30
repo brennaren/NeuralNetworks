@@ -6,7 +6,7 @@
  * the  Network, and outputs relevant information from running the Network.
  * 
  * @author Brenna Ren
- * @version October 17, 2025
+ * @version October 29, 2025
  * Date of creation: September 5, 2025
  */
 public class Main 
@@ -53,7 +53,9 @@ public class Main
 
       if (network.isTraining)
       {
+         network.startTimer();
          network.trainAll();
+         network.endTimer();
          network.printTrainResults();
 
          if (network.saveWeightsToFile)
