@@ -1,12 +1,12 @@
 /**
- * Main class that runs the A-B-C neural network based on user configurations that are configured from the
+ * Main class that runs the A-B-C-D neural network based on user configurations that are configured from the
  * configurations file specified in the command line argument or the default configurations file. 
  * Weights can be loaded from a file and saved to a file. Test cases are also read from external files.
  * This class makes the Network set the configuration parameters, allocates memory for training/running, trains/runs 
  * the  Network, and outputs relevant information from running the Network.
  * 
  * @author Brenna Ren
- * @version October 29, 2025
+ * @version November 3, 2025
  * Date of creation: September 5, 2025
  */
 public class Main 

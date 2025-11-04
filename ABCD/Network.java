@@ -10,8 +10,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Network class that implements an A-B-C feed forward neural network with one activation layer,
- * one hidden layer, and an output layer. It includes methods to set configurations, allocate memory, 
+ * Network class that implements an A-B-C-D feed forward neural network with an input activation layer,
+ * two hidden layers, and an output layer. It includes methods to set configurations, allocate memory, 
  * populate the network with weights, train or run the network, and output the results. The network will 
  * be trained using gradient descent and with back propagation.
  * 
@@ -23,9 +23,9 @@ public class Network
 {
    public final static String DEFAULT_CONFIG_FILE_PATH = "defaultConfigs.properties";  // default config file path
 
-   public final static int NUM_H_LAYERS = 2;
-   public final static int FIRST_H_LAYER = 1;
-   public final static int SECOND_H_LAYER = 2;
+   public final static int NUM_H_LAYERS = 2;    // number of hidden layers
+   public final static int FIRST_H_LAYER = 1;   // first hidden layer index (1-indexed)
+   public final static int SECOND_H_LAYER = 2;  // second hidden layer index (1-indexed)
 
    public int numActivationsA;      // number of input activations
    public int numActivationsH1;     // number of hidden activations (first hidden layer)
