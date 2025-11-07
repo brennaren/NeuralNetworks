@@ -16,7 +16,7 @@ import java.io.OutputStream;
  * be trained using gradient descent and with back propagation.
  * 
  * @author Brenna Ren
- * @version November 6, 2025
+ * @version November 7, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -49,9 +49,6 @@ public class Network
    public boolean isTraining;          // whether the network is in training mode (true) or running mode (false)
    public boolean runAfterTraining;    // whether to run the network after training
    public boolean saveWeightsToFile;   // whether to save weights to a file after training
-
-   public String testCaseConfig;    // whether to use manually specified test cases or load from a file
-   public int numTestCases;         // number of test cases
    
    private double[][] a;            // input activations
    private double[][][] weights;    // weights for connections between all layers [layer][from][to]
@@ -67,6 +64,7 @@ public class Network
    private double averageError;  // average error across all test cases
    private int iteration;        // current training iteration
 
+   private int numTestCases;           // number of test cases
    private double[][] testCaseInput;   // input values for all test cases
    private double[][] testCaseOutput;  // expected output values for all test cases
 
@@ -113,7 +111,6 @@ public class Network
       this.isTraining = true;
       this.runAfterTraining = true;
 
-      this.testCaseConfig = "File"; // "Manual" or "File"
       this.numTestCases = 4;
       this.inputsFilePath = "AND_OR_XOR/AND_OR_XOR_inputs.txt";
       this.outputsFilePath = "AND_OR_XOR/AND_OR_XOR_outputs.txt";
@@ -157,7 +154,6 @@ public class Network
          this.isTraining = Boolean.parseBoolean(props.getProperty("isTraining"));
          this.runAfterTraining = Boolean.parseBoolean(props.getProperty("runAfterTraining"));
 
-         this.testCaseConfig = props.getProperty("testCaseConfig");
          this.numTestCases = Integer.parseInt(props.getProperty("numTestCases"));
          this.inputsFilePath = props.getProperty("inputsFilePath");
          this.outputsFilePath = props.getProperty("outputsFilePath");
@@ -167,45 +163,6 @@ public class Network
          throw new IllegalArgumentException("Error: Unable to open file at " + configFilePath);
       }
    } // public void loadConfigsFromFile()
-
-/**
- * Fills the weights array with manually specified weights.
- * These values can be changed by modifying this method.
- */
-   public void fillManualWeights()
-   {
-      weights[0][0][0] = 0.1;
-      weights[0][1][0] = 0.2;
-      weights[0][0][1] = 0.3;
-      weights[0][1][1] = 0.4;
-      weights[1][0][0] = 0.5;
-      weights[1][1][0] = 0.6;
-   }
-
-/**
- * Fills the test cases array with manually specified test cases.
- * These values can be changed by modifying this method.
- */
-   public void fillManualTestCases()
-   {
-      testCaseInput[0][0] = 0.0;
-      testCaseInput[0][1] = 0.0;
-      testCaseInput[1][0] = 0.0;
-      testCaseInput[1][1] = 1.0;
-      testCaseInput[2][0] = 1.0;
-      testCaseInput[2][1] = 0.0;
-      testCaseInput[3][0] = 1.0;
-      testCaseInput[3][1] = 1.0;
-
-      testCaseOutput[0][0] = 0.0; // AND
-      testCaseOutput[0][1] = 0.0; // OR
-      testCaseOutput[1][0] = 0.0; // AND
-      testCaseOutput[1][1] = 1.0; // OR
-      testCaseOutput[2][0] = 0.0; // AND
-      testCaseOutput[2][1] = 1.0; // OR
-      testCaseOutput[3][0] = 1.0; // AND
-      testCaseOutput[3][1] = 1.0; // OR
-   }
 
 /**
  * Loads weights from a specified binary file path into the network's weight arrays.
@@ -274,7 +231,6 @@ public class Network
       System.out.println("Print Truth Table: " + printTruthTable);
       System.out.println("Print Hidden Activations: " + printHiddenActivations);
       System.out.println("Weight Configuration: " + weightConfig);
-      System.out.println("Test Case Configuration: " + testCaseConfig);
       System.out.println("Mode: " + (isTraining ? "Training" : "Running"));
       System.out.println("Run After Training: " + runAfterTraining);
       System.out.println("Number of Test Cases: " + numTestCases);
@@ -333,11 +289,7 @@ public class Network
  */
    public void populateNetwork()
    {
-      if (weightConfig.equals("Manual"))
-      {
-         fillManualWeights();
-      }
-      else if (weightConfig.equals("Load"))
+      if (weightConfig.equals("Load"))
       {
          loadWeightsFromFile();
       }
@@ -346,14 +298,7 @@ public class Network
          fillRandomWeights();
       }
 
-      if (testCaseConfig.equals("Manual"))
-      {
-         fillManualTestCases();
-      }
-      else
-      {
-         fillFileTestCases();
-      }
+      fillFileTestCases();
    } // public void populateNetwork()
    
 /**
@@ -644,7 +589,7 @@ public class Network
       } // for (int i = 0; i < numOutputsF; i++)
 
       return error;
-   } // public void runByCase(int caseIndex)
+   } // public void runForTrainByCase(int caseIndex)
 
 /**
  * Prints the training results, including the number of iterations, final average error,
@@ -915,7 +860,7 @@ public class Network
 
 /**
  * Saves the current weights of the network to a specified binary file path.
- * The file will first contain the network configuration (A-B-C where A, B, and C 
+ * The file will first contain the network configuration (A-B-C-D where A, B, C, and D
  * are numbers corresponding to the configuration), followed by the weights in the 
  * appropriate order as doubles.
  * If the file cannot be written to, an exception is thrown.
