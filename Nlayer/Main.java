@@ -6,7 +6,7 @@
  * the  Network, and outputs relevant information from running the Network.
  * 
  * @author Brenna Ren
- * @version November 3, 2025
+ * @version November 19, 2025
  * Date of creation: September 5, 2025
  */
 public class Main 
@@ -36,6 +36,7 @@ public class Main
       }
 
       network.loadConfigsFromFile();
+      network.initializeDerivedValues();
       network.printNetworkConfigs();
 
       if (network.isTraining)

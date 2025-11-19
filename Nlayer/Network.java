@@ -16,23 +16,22 @@ import java.io.OutputStream;
  * be trained using gradient descent and with back propagation.
  * 
  * @author Brenna Ren
- * @version November 7, 2025
+ * @version November 19, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
 {
    public final static String DEFAULT_CONFIG_FILE_PATH = "defaultConfigs.properties";  // default config file path
 
-   public final static int INPUT_LAYER = 0;     // input layer index
-   public final static int FIRST_H_LAYER = 1;   // first hidden layer index
-   public final static int SECOND_H_LAYER = 2;  // second hidden layer index
-   public final static int OUTPUT_LAYER = 3;    // output layer index
+   public final static int INPUT_LAYER_INDEX = 0;     // input layer index (0-indexed)
+   public final static int FIRST_H_LAYER_INDEX = 1;   // first hidden layer index (0-indexed)
 
    public int numActivationLayers;  // number of activation layers
-   public int numActivationsA;      // number of input activations
-   public int numActivationsH1;     // number of hidden activations (first hidden layer)
-   public int numActivationsH2;     // number of hidden activations (second hidden layer)
-   public int numOutputsF;          // number of outputs
+   public int[] numActivations;     // number of activations in each layer
+   
+   public int numConnectivityLayers;   // number of connectivity layers
+   public int lastHLayerIndex;         // index of the last hidden layer
+   public int outputLayerIndex;        // index of the output layer
 
    public double randomWeightMin;   // minimum random weight value
    public double randomWeightMax;   // maximum random weight value
@@ -81,16 +80,26 @@ public class Network
    }
 
 /**
+ * Initializes the derived values of the network based on the user configured variables.
+ */
+   public void initializeDerivedValues()
+   {
+      numConnectivityLayers = numActivationLayers - 1;
+      lastHLayerIndex = numActivationLayers - 2;
+      outputLayerIndex = numActivationLayers - 1;
+   }
+
+/**
  * Initializes the configurations of the Network with default, hard-coded values.
  * These values can be changed by modifying this method.
  */
    public void setManualConfigs()
    {
       this.numActivationLayers = 4;
-      this.numActivationsA = 2;
-      this.numActivationsH1 = 1;
-      this.numActivationsH2 = 1;
-      this.numOutputsF = 3;
+      this.numActivations[0] = 2;
+      this.numActivations[1] = 1;
+      this.numActivations[2] = 1;
+      this.numActivations[3] = 3;
 
       this.randomWeightMin = 0.1;
       this.randomWeightMax = 1.5;
@@ -130,10 +139,6 @@ public class Network
          props.load(input);
 
          this.numActivationLayers = Integer.parseInt(props.getProperty("numActivationLayers"));
-         this.numActivationsA = Integer.parseInt(props.getProperty("numActivationsA"));
-         this.numActivationsH1 = Integer.parseInt(props.getProperty("numActivationsH1"));
-         this.numActivationsH2 = Integer.parseInt(props.getProperty("numActivationsH2"));
-         this.numOutputsF = Integer.parseInt(props.getProperty("numOutputsF"));
 
          this.randomWeightMin = Double.parseDouble(props.getProperty("randomWeightMin"));
          this.randomWeightMax = Double.parseDouble(props.getProperty("randomWeightMax"));
@@ -169,6 +174,8 @@ public class Network
  * If the file cannot be read, an exception is thrown.
  * The expected format is the network configuration, followed by the weights 
  * in the appropriate order as doubles.
+ * The indexing in the loops that iterate through the weights define the current layer
+ * as the one to the left (so weights[n][k][j] would be between n and n+1).
  */
    public void loadWeightsFromFile()
    {
@@ -178,7 +185,12 @@ public class Network
          DataInput dataInputStream = new DataInputStream(inputStream);
 
          String fileNetworkConfig = dataInputStream.readUTF();
-         String actualNetworkConfig = numActivationsA + "-" + numActivationsH1 + "-" + numActivationsH2 + "-" + numOutputsF;
+         String actualNetworkConfig = "";
+
+         for (int n = 0; n < numActivationLayers; n++)
+         {
+            actualNetworkConfig += numActivations[n] + "-";
+         }
 
          if (!fileNetworkConfig.equals(actualNetworkConfig))
          {
@@ -186,27 +198,14 @@ public class Network
             throw new IllegalArgumentException("Error: Weight configuration in file does not match network configuration.");
          }
 
-         for (int m = 0; m < numActivationsA; m++)
+         for (int n = 0; n < numConnectivityLayers; n++)
          {
-            for (int k = 0; k < numActivationsH1; k++)
+            for (int k = 0; k < numActivations[n]; k++)
             {
-               weights[INPUT_LAYER][m][k] = dataInputStream.readDouble();
-            }
-         }
-
-         for (int k = 0; k < numActivationsH1; k++)
-         {
-            for (int j = 0; j < numActivationsH2; j++)
-            {
-               weights[FIRST_H_LAYER][k][j] = dataInputStream.readDouble();
-            }
-         }
-
-         for (int j = 0; j < numActivationsH2; j++)
-         {
-            for (int i = 0; i < numOutputsF; i++)
-            {
-               weights[SECOND_H_LAYER][j][i] = dataInputStream.readDouble();
+               for (int j = 0; j < numActivations[n+1]; j++)
+               {
+                  weights[n][k][j] = dataInputStream.readDouble();
+               }
             }
          }
 
@@ -225,7 +224,16 @@ public class Network
    {
       System.out.println("\n---------NETWORK CONFIGURATIONS---------");
       System.out.println("Configurations File Path: " + configFilePath);
-      System.out.println("Type of Network: " + numActivationsA + "-" + numActivationsH1 + "-" + numActivationsH2 + "-" + numOutputsF);
+      System.out.println("Test Cases Input File Path: " + inputsFilePath);
+      System.out.println("Test Cases Output File Path: " + outputsFilePath);
+
+      System.out.println("Type of Network: ");
+
+      for (int n = 0; n < numActivationLayers; n++)
+      {
+         System.out.print(numActivations[n] + "-");
+      }
+
       System.out.println("Print Network Specifics: " + printNetworkSpecifics);
       System.out.println("Print Input Table: " + printInputTable);
       System.out.println("Print Truth Table: " + printTruthTable);
@@ -250,36 +258,45 @@ public class Network
 
 /**
  * Allocates memory for the network's arrays based on the number of activations.
+ * The indexing in the loops that iterate through the weights define the current layer
+ * as the one to the left (so weights[n][k][j] would be between n and n+1).
  */
    public void allocateNetworkMemory()
    {
+      numActivations = new int[numActivationLayers];
+
       a = new double[numActivationLayers][];
-      a[INPUT_LAYER] = new double[numActivationsA];
-      a[FIRST_H_LAYER] = new double[numActivationsH1];
-      a[SECOND_H_LAYER] = new double[numActivationsH2];
-      a[OUTPUT_LAYER] = new double[numOutputsF];
+      for (int n = 0; n < numActivationLayers; n++)
+      {
+         a[n] = new double[numActivations[n]];
+      }
 
       weights = new double[numActivationLayers][][];
-      weights[INPUT_LAYER] = new double[numActivationsA][numActivationsH1];
-      weights[FIRST_H_LAYER] = new double[numActivationsH1][numActivationsH2];
-      weights[SECOND_H_LAYER] = new double[numActivationsH2][numOutputsF];
+      for (int n = 0; n < numConnectivityLayers; n++)
+      {
+         weights[n] = new double[numActivations[n]][numActivations[n+1]];
+      }
 
-      testCaseInput = new double[numTestCases][numActivationsA];
+      testCaseInput = new double[numTestCases][numActivations[INPUT_LAYER_INDEX]];
       
       if (isTraining || printTruthTable)
       {
-         testCaseOutput = new double[numTestCases][numOutputsF];
+         testCaseOutput = new double[numTestCases][numActivations[outputLayerIndex]];
       }
 
       if (isTraining)
       {
-         thetas = new double[numActivationLayers][];
-         thetas[FIRST_H_LAYER] = new double[numActivationsH1];
-         thetas[SECOND_H_LAYER] = new double[numActivationsH2];
+         thetas = new double[numActivationLayers-1][];
+         for (int n = FIRST_H_LAYER_INDEX; n < lastHLayerIndex; n++)
+         {
+            thetas[n] = new double[numActivations[n]];
+         }
 
          psis = new double[numActivationLayers][];
-         psis[SECOND_H_LAYER] = new double[numActivationsH2];
-         psis[OUTPUT_LAYER] = new double[numOutputsF];
+         for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
+         {
+            psis[n] = new double[numActivations[n]];
+         }
       }
    } // public void allocateNetworkMemory()
 
@@ -306,27 +323,14 @@ public class Network
  */
    public void fillRandomWeights()
    {
-      for (int m = 0; m < numActivationsA; m++)
+      for (int n = 0; n < numConnectivityLayers; n++)
       {
-         for (int k = 0; k < numActivationsH1; k++)
+         for (int k = 0; k < numActivations[n]; k++)
          {
-            weights[INPUT_LAYER][m][k] = getRandomValue(randomWeightMin, randomWeightMax);
-         }
-      }
-
-      for (int k = 0; k < numActivationsH1; k++)
-      {
-         for (int j = 0; j < numActivationsH2; j++)
-         {
-            weights[FIRST_H_LAYER][k][j] = getRandomValue(randomWeightMin, randomWeightMax);
-         }
-      }
-
-      for (int j = 0; j < numActivationsH2; j++)
-      {
-         for (int i = 0; i < numOutputsF; i++)
-         {
-            weights[SECOND_H_LAYER][j][i] = getRandomValue(randomWeightMin, randomWeightMax);
+            for (int j = 0; j < numActivations[n+1]; j++)
+            {
+               weights[n][k][j] = getRandomValue(randomWeightMin, randomWeightMax);
+            }
          }
       }
    } // public void fillRandomWeights()
@@ -363,7 +367,7 @@ public class Network
 
       for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
       {
-         for (int m = 0; m < numActivationsA; m++)
+         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          {
             if (inputFileScanner.hasNextDouble())
             {
@@ -393,7 +397,7 @@ public class Network
 
          for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
          {
-            for (int i = 0; i < numOutputsF; i++)
+            for (int i = 0; i < numActivations[outputLayerIndex]; i++)
             {
                if (outputFileScanner.hasNextDouble())
                {
@@ -442,36 +446,40 @@ public class Network
  */
    public void updateWeights(int caseIndex)
    {
-      for (int j = 0; j < numActivationsH2; j++)
+      for (int n = lastHLayerIndex; n > FIRST_H_LAYER_INDEX; n--)
       {
-         double h2_omega = 0.0;
-
-         for (int i = 0; i < numOutputsF; i++)
+         for (int k = 0; k < numActivations[n]; k++)
          {
-            h2_omega += psis[OUTPUT_LAYER][i] * weights[SECOND_H_LAYER][j][i];
-            weights[SECOND_H_LAYER][j][i] += lambdaValue * a[SECOND_H_LAYER][j] * psis[OUTPUT_LAYER][i];
-         }
+            double omega = 0.0;
+
+            for (int j = 0; j < numActivations[n+1]; j++)
+            {
+               omega += psis[n+1][j] * weights[n][k][j];
+               weights[n][k][j] += lambdaValue * a[n][k] * psis[n+1][j];
+            }
          
-         psis[SECOND_H_LAYER][j] = h2_omega * derivActivationFunction(thetas[SECOND_H_LAYER][j]);
-      } // for (int j = 0; j < numActivationsH2; j++)
-
-      for (int k = 0; k < numActivationsH1; k++)
+            psis[n][k] = omega * derivActivationFunction(thetas[n][k]);
+         } // for (int j = 0; j < numActivations[n]; j++)
+      } // for (int n = lastHLayerIndex; n > FIRST_H_LAYER_INDEX; n--)
+      
+      int n = FIRST_H_LAYER_INDEX;
+      for (int k = 0; k < numActivations[n]; k++)
       {
-         double h1_omega = 0.0;
+         double omega = 0.0;
 
-         for (int j = 0; j < numActivationsH2; j++)
+         for (int j = 0; j < numActivations[n+1]; j++)
          {
-            h1_omega += psis[SECOND_H_LAYER][j] * weights[FIRST_H_LAYER][k][j];
-            weights[FIRST_H_LAYER][k][j] += lambdaValue * a[FIRST_H_LAYER][k] * psis[SECOND_H_LAYER][j];
+            omega += psis[n+1][j] * weights[n][k][j];
+            weights[n][k][j] += lambdaValue * a[n][k] * psis[n+1][j];
          }
 
-         double h1_psi = h1_omega * derivActivationFunction(thetas[FIRST_H_LAYER][k]);
-
-         for (int m = 0; m < numActivationsA; m++)
+         psis[n][k] = omega * derivActivationFunction(thetas[n][k]);
+         
+         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          {
-            weights[INPUT_LAYER][m][k] += lambdaValue * a[INPUT_LAYER][m] * h1_psi;
+            weights[INPUT_LAYER_INDEX][m][k] += lambdaValue * a[INPUT_LAYER_INDEX][m] * psis[n][k];
          }
-      } // for (int k = 0; k < numActivationsH1; k++)
+      } // for (int k = 0; k < numActivations[n]; k++)
    } // public void updateWeights(int caseIndex)
 
 /**
@@ -549,44 +557,37 @@ public class Network
    public double runForTrainByCase(int caseIndex)
    {
       double error = 0.0;
-      for (int k = 0; k < numActivationsH1; k++)
+
+      for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
       {
-         thetas[FIRST_H_LAYER][k] = 0.0;
-
-         for (int m = 0; m < numActivationsA; m++)
+         for (int j = 0; j < numActivations[n]; j++)
          {
-            thetas[FIRST_H_LAYER][k] += a[INPUT_LAYER][m] * weights[INPUT_LAYER][m][k];
-         }
+            thetas[n][j] = 0.0;
 
-         a[FIRST_H_LAYER][k] = activationFunction(thetas[FIRST_H_LAYER][k]);
-      } // for (int k = 0; k < numActivationsH1; k++)
+            for (int k = 0; k < numActivations[n-1]; k++)
+            {
+               thetas[n][j] += a[n-1][k] * weights[n-1][k][j];
+            }
 
-      for (int j = 0; j < numActivationsH2; j++)
-      {
-         thetas[SECOND_H_LAYER][j] = 0.0;
+            a[n][j] = activationFunction(thetas[n][j]);
+         } // for (int j = 0; j < numActivations[n]; j++)
+      } // for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
 
-         for (int k = 0; k < numActivationsH1; k++)
-         {
-            thetas[SECOND_H_LAYER][j] += a[FIRST_H_LAYER][k] * weights[FIRST_H_LAYER][k][j];
-         }
-
-         a[SECOND_H_LAYER][j] = activationFunction(thetas[SECOND_H_LAYER][j]);
-      } // for (int j = 0; j < numActivationsH2; j++)
-
-      for (int i = 0; i < numOutputsF; i++)
+      int n = outputLayerIndex;
+      for (int i = 0; i < numActivations[n]; i++)
       {
          double F_theta = 0.0;
 
-         for (int j = 0; j < numActivationsH2; j++)
+         for (int j = 0; j < numActivations[n-1]; j++)
          {
-            F_theta += a[SECOND_H_LAYER][j] * weights[SECOND_H_LAYER][j][i];
+            F_theta += a[n-1][j] * weights[n-1][j][i];
          }
 
-         a[OUTPUT_LAYER][i] = activationFunction(F_theta);
-         double F_omega = testCaseOutput[caseIndex][i] - a[OUTPUT_LAYER][i];
-         psis[OUTPUT_LAYER][i] = F_omega * derivActivationFunction(F_theta);
+         a[n][i] = activationFunction(F_theta);
+         double F_omega = testCaseOutput[caseIndex][i] - a[n][i];
+         psis[n][i] = F_omega * derivActivationFunction(F_theta);
          error += F_omega * F_omega;
-      } // for (int i = 0; i < numOutputsF; i++)
+      } // for (int i = 0; i < numActivations[n]; i++)
 
       return error;
    } // public void runForTrainByCase(int caseIndex)
@@ -641,41 +642,20 @@ public class Network
  */
    public void runByCase(int caseIndex)
    {
-      for (int k = 0; k < numActivationsH1; k++)
+      for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
       {
-         double h1_theta = 0.0;
-
-         for (int m = 0; m < numActivationsA; m++)
+         for (int j = 0; j < numActivations[n]; j++)
          {
-            h1_theta += a[INPUT_LAYER][m] * weights[INPUT_LAYER][m][k];
-         }
+            double theta = 0.0;
 
-         a[FIRST_H_LAYER][k] = activationFunction(h1_theta);
-      } // for (int k = 0; k < numActivationsH1; k++)
+            for (int k = 0; k < numActivations[n-1]; k++)
+            {
+               theta += a[n-1][k] * weights[n-1][k][j];
+            }
 
-      for (int j = 0; j < numActivationsH2; j++)
-      {
-         double h2_theta = 0.0;
-
-         for (int k = 0; k < numActivationsH1; k++)
-         {
-            h2_theta += a[FIRST_H_LAYER][k] * weights[FIRST_H_LAYER][k][j];
-         }
-
-         a[SECOND_H_LAYER][j] = activationFunction(h2_theta);
-      } // for (int j = 0; j < numActivationsH2; j++)
-
-      for (int i = 0; i < numOutputsF; i++)
-      {
-         double F_theta = 0.0;
-
-         for (int j = 0; j < numActivationsH2; j++)
-         {
-            F_theta += a[SECOND_H_LAYER][j] * weights[SECOND_H_LAYER][j][i];
-         }
-         
-         a[OUTPUT_LAYER][i] = activationFunction(F_theta);
-      } // for (int i = 0; i < numOutputsF; i++)
+            a[n][j] = activationFunction(theta);
+         } // for (int j = 0; j < numActivations[n]; j++)
+      } // for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
    } // public void runByCase(int caseIndex)
 
 /**
@@ -684,9 +664,9 @@ public class Network
  */
    public void setUpTestCase(int caseIndex)
    {
-      for (int m = 0; m < numActivationsA; m++)
+      for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
       {
-         a[INPUT_LAYER][m] = testCaseInput[caseIndex][m];
+         a[INPUT_LAYER_INDEX][m] = testCaseInput[caseIndex][m];
       }
    }
 
@@ -719,33 +699,15 @@ public class Network
    public void printNetworkWeights()
    {
       System.out.println("\n---------NETWORK WEIGHTS---------");
-      System.out.println("Weights from Input Layer to First Hidden Layer (ah_weights):");
 
-      for (int m = 0; m < numActivationsA; m++)
+      for (int n = 0; n < numConnectivityLayers; n++)
       {
-         for (int k = 0; k < numActivationsH1; k++)
+         for (int k = 0; k < numActivations[n]; k++)
          {
-            System.out.printf("weights[%d][%d][%d]: %.4f\n", INPUT_LAYER, m, k, weights[INPUT_LAYER][m][k]);
-         }
-      }
-      
-      System.out.println("Weights from First Hidden Layer to Second Hidden Layer (h1h2_weights):");
-      
-      for (int k = 0; k < numActivationsH1; k++)
-      {
-         for (int j = 0; j < numActivationsH2; j++)
-         {
-            System.out.printf("weights[%d][%d][%d]: %.4f\n", FIRST_H_LAYER, k, j, weights[FIRST_H_LAYER][k][j]);
-         }
-      }
-
-      System.out.println("Weights from Second Hidden Layer to Output (hF_weights):");
-
-      for (int j = 0; j < numActivationsH2; j++)
-      {
-         for (int i = 0; i < numOutputsF; i++)
-         {
-            System.out.printf("hF_weights[%d][%d][%d]: %.4f\n", SECOND_H_LAYER, j, i, weights[SECOND_H_LAYER][j][i]);
+            for (int j = 0; j < numActivations[n+1]; j++)
+            {
+               System.out.printf("weights[%d][%d][%d]: %.4f\n", n, k, j, weights[n][k][j]);
+            }
          }
       }
    } // public void printNetworkWeights()
@@ -762,7 +724,7 @@ public class Network
       {
          System.out.print("[");
 
-         for (int m = 0; m < numActivationsA; m++)
+         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][m]);
          }
@@ -785,23 +747,23 @@ public class Network
          runByCase(caseIndex);
          System.out.print("[");
 
-         for (int m = 0; m < numActivationsA; m++)
+         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][m]);
          }
 
          System.out.print("|");
 
-         for (int i = 0; i < numOutputsF; i++)
+         for (int i = 0; i < numActivations[outputLayerIndex]; i++)
          {
             System.out.printf(" %.2f", testCaseOutput[caseIndex][i]);
          }
 
          System.out.print(" |");
 
-         for (int i = 0; i < numOutputsF; i++)
+         for (int i = 0; i < numActivations[outputLayerIndex]; i++)
          {
-            System.out.printf(" %.4f", a[OUTPUT_LAYER][i]);
+            System.out.printf(" %.4f", a[outputLayerIndex][i]);
          }
          
          System.out.println("]");
@@ -824,16 +786,16 @@ public class Network
 
          System.out.print("[");
 
-         for (int m = 0; m < numActivationsA; m++)
+         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          {
             System.out.printf("%.2f ", testCaseInput[caseIndex][m]);
          }
 
          System.out.print("|");
 
-         for (int i = 0; i < numOutputsF; i++)
+         for (int i = 0; i < numActivations[outputLayerIndex]; i++)
          {
-            System.out.printf(" %.17f", a[OUTPUT_LAYER][i]);
+            System.out.printf(" %.17f", a[outputLayerIndex][i]);
          }
          
          System.out.println("]");
@@ -847,14 +809,12 @@ public class Network
    {
       System.out.println("\n---------HIDDEN ACTIVATIONS---------");
       
-      for (int k = 0; k < numActivationsH1; k++)
+      for (int n = FIRST_H_LAYER_INDEX; n < outputLayerIndex; n++)
       {
-         System.out.printf("h_activations[%d]: %.4f\n", k, a[FIRST_H_LAYER][k]);
-      }
-
-      for (int j = 0; j < numActivationsH2; j++)
-      {
-         System.out.printf("h_activations[%d]: %.4f\n", j, a[SECOND_H_LAYER][j]);
+         for (int k = 0; k < numActivations[n]; k++)
+         {
+            System.out.printf("a[%d][%d]: %.4f\n", n, k, a[n][k]);
+         }
       }
    } // public void printHiddenActivations()
 
@@ -872,30 +832,23 @@ public class Network
          OutputStream outputStream = new FileOutputStream(saveWeightsFilePath);
          DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
 
-         String networkConfig = numActivationsA + "-" + numActivationsH1 + "-"  + numActivationsH2 + "-"+ numOutputsF;
+         String networkConfig = "";
+
+         for (int n = 0; n < numActivationLayers; n++)
+         {
+            networkConfig += numActivations[n] + "-";
+         }
+
          dataOutputStream.writeUTF(networkConfig);
 
-         for (int m = 0; m < numActivationsA; m++)
+         for (int n = 0; n < numConnectivityLayers; n++)
          {
-            for (int k = 0; k < numActivationsH1; k++)
+            for (int k = 0; k < numActivations[n]; k++)
             {
-               dataOutputStream.writeDouble(weights[INPUT_LAYER][m][k]);
-            }
-         }
-
-         for (int k = 0; k < numActivationsH1; k++)
-         {
-            for (int j = 0; j < numActivationsH2; j++)
-            {
-               dataOutputStream.writeDouble(weights[FIRST_H_LAYER][k][j]);
-            }
-         }
-         
-         for (int j = 0; j < numActivationsH2; j++)
-         {
-            for (int i = 0; i < numOutputsF; i++)
-            {
-               dataOutputStream.writeDouble(weights[SECOND_H_LAYER][j][i]);
+               for (int j = 0; j < numActivations[n+1]; j++)
+               {
+                  dataOutputStream.writeDouble(weights[n][k][j]);
+               }
             }
          }
          outputStream.close();
