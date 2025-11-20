@@ -44,6 +44,8 @@ public class Network
    public boolean printTruthTable;        // whether to print the truth table after training/running
    public boolean printHiddenActivations; // whether to print the hidden activations after each run
 
+   public double keepAlive;            // number of iterations between messages (or no output if it is set to zero)
+
    public String weightConfig;         // whether to use manually specified weights or random weights
    public boolean isTraining;          // whether the network is in training mode (true) or running mode (false)
    public boolean runAfterTraining;    // whether to run the network after training
@@ -140,6 +142,13 @@ public class Network
 
          this.numActivationLayers = Integer.parseInt(props.getProperty("numActivationLayers"));
 
+         String numActivationsStr = props.getProperty("numActivations");
+         String[] numActivationsArr = numActivationsStr.split("-");
+         for (int i = 0; i < numActivationsArr.length; i++)
+         {
+            numActivations[i] = Integer.parseInt(numActivationsArr[i]);
+         }
+
          this.randomWeightMin = Double.parseDouble(props.getProperty("randomWeightMin"));
          this.randomWeightMax = Double.parseDouble(props.getProperty("randomWeightMax"));
          this.maxIterations = Integer.parseInt(props.getProperty("maxIterations"));
@@ -150,6 +159,8 @@ public class Network
          this.printInputTable = Boolean.parseBoolean(props.getProperty("printInputTable"));
          this.printTruthTable = Boolean.parseBoolean(props.getProperty("printTruthTable"));
          this.printHiddenActivations = Boolean.parseBoolean(props.getProperty("printHiddenActivations"));
+
+         this.keepAlive = Double.parseDouble(props.getProperty("keepAlive"));
 
          this.weightConfig = props.getProperty("weightConfig");
          this.loadWeightsFilePath = props.getProperty("loadWeightsFilePath");
@@ -238,6 +249,7 @@ public class Network
       System.out.println("Print Input Table: " + printInputTable);
       System.out.println("Print Truth Table: " + printTruthTable);
       System.out.println("Print Hidden Activations: " + printHiddenActivations);
+      System.out.println("Keep Alive Iterations: " + keepAlive);
       System.out.println("Weight Configuration: " + weightConfig);
       System.out.println("Mode: " + (isTraining ? "Training" : "Running"));
       System.out.println("Run After Training: " + runAfterTraining);
@@ -435,6 +447,11 @@ public class Network
          totalError /= 2.0;
          iteration++;
          averageError = totalError / numTestCases;
+
+         if ((keepAlive != 0) && ((iteration % keepAlive) == 0)) 
+         {
+            System.out.printf("Iteration %d, Error = %f\n", iteration, averageError);
+         }
       } // while (averageError > errorThreshold && iteration < maxIterations)
    } // public void trainAll()
 
