@@ -26,8 +26,9 @@ public class Network
    public final static int INPUT_LAYER_INDEX = 0;     // input layer index (0-indexed)
    public final static int FIRST_H_LAYER_INDEX = 1;   // first hidden layer index (0-indexed)
 
-   public int numActivationLayers;  // number of activation layers
-   public int[] numActivations;     // number of activations in each layer
+   public int numActivationLayers;     // number of activation layers
+   public int[] numActivations;        // number of activations in each layer
+   public String networkConfigString;  // string representation of the network configuration
    
    public int numConnectivityLayers;   // number of connectivity layers
    public int lastHLayerIndex;         // index of the last hidden layer
@@ -99,7 +100,7 @@ public class Network
    {
       this.numActivationLayers = 4;
       this.numActivations[0] = 2;
-      this.numActivations[1] = 1;
+      this.numActivations[1] = 2;
       this.numActivations[2] = 1;
       this.numActivations[3] = 3;
 
@@ -142,12 +143,7 @@ public class Network
 
          this.numActivationLayers = Integer.parseInt(props.getProperty("numActivationLayers"));
 
-         String numActivationsStr = props.getProperty("numActivations");
-         String[] numActivationsArr = numActivationsStr.split("-");
-         for (int i = 0; i < numActivationsArr.length; i++)
-         {
-            numActivations[i] = Integer.parseInt(numActivationsArr[i]);
-         }
+         this.networkConfigString = props.getProperty("networkConfig");
 
          this.randomWeightMin = Double.parseDouble(props.getProperty("randomWeightMin"));
          this.randomWeightMax = Double.parseDouble(props.getProperty("randomWeightMax"));
@@ -176,7 +172,7 @@ public class Network
       } // try
       catch (Exception e)
       {
-         throw new IllegalArgumentException("Error: Unable to open file at " + configFilePath);
+         throw new IllegalArgumentException("Error: Unable to open file at " + configFilePath + " — " + e.getMessage(), e);
       }
    } // public void loadConfigsFromFile()
 
@@ -196,14 +192,8 @@ public class Network
          DataInput dataInputStream = new DataInputStream(inputStream);
 
          String fileNetworkConfig = dataInputStream.readUTF();
-         String actualNetworkConfig = "";
 
-         for (int n = 0; n < numActivationLayers; n++)
-         {
-            actualNetworkConfig += numActivations[n] + "-";
-         }
-
-         if (!fileNetworkConfig.equals(actualNetworkConfig))
+         if (!fileNetworkConfig.equals(networkConfigString))
          {
             inputStream.close();
             throw new IllegalArgumentException("Error: Weight configuration in file does not match network configuration.");
@@ -237,14 +227,7 @@ public class Network
       System.out.println("Configurations File Path: " + configFilePath);
       System.out.println("Test Cases Input File Path: " + inputsFilePath);
       System.out.println("Test Cases Output File Path: " + outputsFilePath);
-
-      System.out.println("Type of Network: ");
-
-      for (int n = 0; n < numActivationLayers; n++)
-      {
-         System.out.print(numActivations[n] + "-");
-      }
-
+      System.out.println("Network Config: " + networkConfigString);
       System.out.println("Print Network Specifics: " + printNetworkSpecifics);
       System.out.println("Print Input Table: " + printInputTable);
       System.out.println("Print Truth Table: " + printTruthTable);
@@ -276,6 +259,11 @@ public class Network
    public void allocateNetworkMemory()
    {
       numActivations = new int[numActivationLayers];
+      for (int n = 0; n < numActivationLayers; n++)
+      {
+         String[] parsedNetworkConfig = networkConfigString.split("-");
+         numActivations[n] = Integer.parseInt(parsedNetworkConfig[n]);
+      }
 
       a = new double[numActivationLayers][];
       for (int n = 0; n < numActivationLayers; n++)
@@ -299,7 +287,7 @@ public class Network
       if (isTraining)
       {
          thetas = new double[numActivationLayers-1][];
-         for (int n = FIRST_H_LAYER_INDEX; n < lastHLayerIndex; n++)
+         for (int n = FIRST_H_LAYER_INDEX; n <= lastHLayerIndex; n++)
          {
             thetas[n] = new double[numActivations[n]];
          }
@@ -575,7 +563,7 @@ public class Network
    {
       double error = 0.0;
 
-      for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
+      for (int n = FIRST_H_LAYER_INDEX; n <= lastHLayerIndex; n++)
       {
          for (int j = 0; j < numActivations[n]; j++)
          {
@@ -588,7 +576,7 @@ public class Network
 
             a[n][j] = activationFunction(thetas[n][j]);
          } // for (int j = 0; j < numActivations[n]; j++)
-      } // for (int n = FIRST_H_LAYER_INDEX; n < numActivationLayers; n++)
+      } // for (int n = FIRST_H_LAYER_INDEX; n <= lastHLayerIndex; n++)
 
       int n = outputLayerIndex;
       for (int i = 0; i < numActivations[n]; i++)
@@ -849,14 +837,7 @@ public class Network
          OutputStream outputStream = new FileOutputStream(saveWeightsFilePath);
          DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
 
-         String networkConfig = "";
-
-         for (int n = 0; n < numActivationLayers; n++)
-         {
-            networkConfig += numActivations[n] + "-";
-         }
-
-         dataOutputStream.writeUTF(networkConfig);
+         dataOutputStream.writeUTF(networkConfigString);
 
          for (int n = 0; n < numConnectivityLayers; n++)
          {
