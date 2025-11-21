@@ -10,13 +10,47 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Network class that implements an A-B-C-D feed forward neural network with an input activation layer,
- * two hidden layers, and an output layer. It includes methods to set configurations, allocate memory, 
- * populate the network with weights, train or run the network, and output the results. The network will 
- * be trained using gradient descent and with back propagation.
+ * Network class that implements an N-layer feed forward neural network with an input activation layer,
+ * hidden layers, and an output layer (total of N activation layers). It includes methods to set configurations, 
+ * allocate memory, populate the network with weights, train or run the network, and output the results. The 
+ * network will be trained using gradient descent and with back propagation.
+ * 
+ * Methods include:
+ * public void initializeVariables()
+ * public void initializeDerivedValues()
+ * public void setManualConfigs()
+ * public void loadConfigsFromFile()
+ * public void loadWeightsFromFile()
+ * public void printNetworkConfigs()
+ * public void printTrainingParameters()
+ * public void allocateNetworkMemory()
+ * public void populateNetwork()
+ * public void fillRandomWeights()
+ * public double getRandomValue(double low, double high)
+ * public void fillFileTestCases()
+ * public void trainAll()
+ * public void updateWeights(int caseIndex)
+ * public double derivActivationFunction(double theta)
+ * public double activationFunction(double theta)
+ * public double sigmoid(double x)
+ * public double derivSigmoid(double x)
+ * public double tanh(double x)
+ * public double derivTanh(double x)
+ * public void runForTrainByCase(int caseIndex)
+ * public void printTrainResults()
+ * public void runAll()
+ * public void runByCase(int caseIndex)
+ * public void setUpTestCase(int caseIndex)
+ * public void printRunResults()
+ * public void printNetworkWeights()
+ * public void printInputTable()
+ * public void printTruthTableWithOutputs()
+ * public void printInputOutputOnly()
+ * public void startTimer()
+ * public void endTimer()
  * 
  * @author Brenna Ren
- * @version November 19, 2025
+ * @version November 21, 2025
  * Date of creation: September 9, 2025
  */
 public class Network 
@@ -99,10 +133,7 @@ public class Network
    public void setManualConfigs()
    {
       this.numActivationLayers = 4;
-      this.numActivations[0] = 2;
-      this.numActivations[1] = 2;
-      this.numActivations[2] = 1;
-      this.numActivations[3] = 3;
+      this.networkConfigString = "2-2-1-3";
 
       this.randomWeightMin = 0.1;
       this.randomWeightMax = 1.5;
@@ -142,7 +173,6 @@ public class Network
          props.load(input);
 
          this.numActivationLayers = Integer.parseInt(props.getProperty("numActivationLayers"));
-
          this.networkConfigString = props.getProperty("networkConfig");
 
          this.randomWeightMin = Double.parseDouble(props.getProperty("randomWeightMin"));
@@ -271,7 +301,7 @@ public class Network
          a[n] = new double[numActivations[n]];
       }
 
-      weights = new double[numActivationLayers][][];
+      weights = new double[numConnectivityLayers][][];
       for (int n = 0; n < numConnectivityLayers; n++)
       {
          weights[n] = new double[numActivations[n]][numActivations[n+1]];
@@ -297,7 +327,7 @@ public class Network
          {
             psis[n] = new double[numActivations[n]];
          }
-      }
+      } // if (isTraining)
    } // public void allocateNetworkMemory()
 
 /**
@@ -378,7 +408,7 @@ public class Network
                inputFileScanner.close();
                throw new IllegalArgumentException("Error: Not enough input values in test cases file.");
             }
-         } // for (int m = 0; m < numActivationsA; m++)
+         } // for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
       } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
 
       inputFileScanner.close();
@@ -408,7 +438,7 @@ public class Network
                   outputFileScanner.close();
                   throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
                }
-            } // for (int i = 0; i < numOutputsF; i++)
+            } // for (int i = 0; i < numActivations[outputLayerIndex]; i++)
          } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
 
          outputFileScanner.close();
