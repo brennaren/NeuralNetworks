@@ -59,6 +59,7 @@ public class Network
 
    public final static int INPUT_LAYER_INDEX = 0;     // input layer index (0-indexed)
    public final static int FIRST_H_LAYER_INDEX = 1;   // first hidden layer index (0-indexed)
+   public final static int SECOND_H_LAYER_INDEX = 2;  // second hidden layer index (0-indexed)
 
    public int numActivationLayers;     // number of activation layers
    public int[] numActivations;        // number of activations in each layer
@@ -481,7 +482,7 @@ public class Network
  */
    public void updateWeights(int caseIndex)
    {
-      for (int n = lastHLayerIndex; n > FIRST_H_LAYER_INDEX; n--)
+      for (int n = lastHLayerIndex; n >= SECOND_H_LAYER_INDEX; n--)
       {
          for (int k = 0; k < numActivations[n]; k++)
          {
@@ -495,7 +496,7 @@ public class Network
          
             psis[n][k] = omega * derivActivationFunction(thetas[n][k]);
          } // for (int j = 0; j < numActivations[n]; j++)
-      } // for (int n = lastHLayerIndex; n > FIRST_H_LAYER_INDEX; n--)
+      } // for (int n = lastHLayerIndex; n >= SECOND_H_LAYER_INDEX; n--)
       
       int n = FIRST_H_LAYER_INDEX;
       for (int k = 0; k < numActivations[n]; k++)
