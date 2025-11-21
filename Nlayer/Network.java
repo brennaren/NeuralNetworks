@@ -432,7 +432,7 @@ public class Network
                if (outputFileScanner.hasNextDouble())
                {
                   testCaseOutput[caseIndex][i] = outputFileScanner.nextDouble();
-               } // if (fileScanner.hasNextDouble())
+               }
                else
                {
                   outputFileScanner.close();
