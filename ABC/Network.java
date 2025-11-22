@@ -80,9 +80,9 @@ public class Network
  */
    public void setManualConfigs()
    {
-      this.numActivationsA = 3;
+      this.numActivationsA = 2;
       this.numActivationsH = 1;
-      this.numOutputsF = 3;
+      this.numOutputsF = 1;
 
       this.randomWeightMin = 0.1;
       this.randomWeightMax = 1.5;
@@ -103,9 +103,9 @@ public class Network
       this.isTraining = true;
       this.runAfterTraining = true;
 
-      this.testCaseConfig = "Manual"; // "Manual" or "File"
+      this.testCaseConfig = "File"; // "Manual" or "File"
       this.numTestCases = 4;
-      this.testCasesFilePath = "AND_OR_XOR/AND_OR_XOR_test_cases.txt";
+      this.testCasesFilePath = "XOR/XOR_test_cases.txt";
    } // public void setManualConfigs()
 
 /**
