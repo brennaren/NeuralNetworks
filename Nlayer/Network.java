@@ -495,7 +495,7 @@ public class Network
             }
          
             psis[n][k] = omega * derivActivationFunction(thetas[n][k]);
-         } // for (int j = 0; j < numActivations[n]; j++)
+         } // for (int k = 0; k < numActivations[n]; k++)
       } // for (int n = lastHLayerIndex; n >= SECOND_H_LAYER_INDEX; n--)
       
       int n = FIRST_H_LAYER_INDEX;
