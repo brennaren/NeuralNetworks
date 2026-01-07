@@ -64,7 +64,7 @@ public class MakeChanges {
                 System.out.printf("Rough Crop Image Height %d\n\n", roughCroppedPixels.getHeight());
 
                 // scale
-                roughCroppedPixels = roughCroppedPixels.scale(150, 196);
+                roughCroppedPixels = roughCroppedPixels.scale(300, 392);
 
                 roughCroppedPixels = roughCroppedPixels.onesComplimentImage();
                 // roughCroppedPixels.dump();
@@ -79,13 +79,13 @@ public class MakeChanges {
                 System.out.printf("xCom %d\n", xCom);
                 System.out.printf("yCom %d\n\n", yCom);
         
-                PelArray croppedPixels = roughCroppedPixels.crop(xCom-60, yCom-92, xCom+64, yCom+17);
+                PelArray croppedPixels = roughCroppedPixels.crop(xCom-123, yCom-200, xCom+132, yCom+55);
 
-                croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 10, 5, 23);
-                // croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 15, 5, 5);
-                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 30, 5, 25);
-                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 0, 5, 55);
-                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 0, 5, 55);
+                croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 8, 5, 80);
+                croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 15, 5, 10);
+                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 10, 5, 80);
+                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 0, 5, 110);
+                croppedPixels = croppedPixels.removeBackgroundNoiseCorners(PelArray.BLACK, 0, 5, 110);
                 croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 0,6, 0);
                 croppedPixels = croppedPixels.removeBackgroundNoise(PelArray.BLACK, 0,6, 0);
                 
@@ -129,7 +129,7 @@ public class MakeChanges {
 
                 // check that BMP2OneByte is outputting doubles and BGR2BMP is taking in 0-1 activation values and not 0-256
                 BMP2OneByte.main(new String[] {croppedBmpString, modifiedBinString});
-                BGR2BMP.main(new String[] {"gray", ""+125, ""+110, modifiedBinString, modifiedBmpString});
+                BGR2BMP.main(new String[] {"gray", ""+256, ""+256, modifiedBinString, modifiedBmpString});
             }
         }
 

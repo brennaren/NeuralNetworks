@@ -10,8 +10,8 @@ public class ApplyOnesComplement {
         {
             for (int y=1; y<=6; y++)
             {
-                int biHeight = 110;
-                int biWidth = 125;
+                int biHeight = 256;
+                int biWidth = 256;
                 
                 String modifiedBmpString = "onesBMP/scaledCropped" + x + "-" + y + ".bmp";
                 String modifiedBinString = "onesBin/scaledCropped" + x + "-" + y + ".bin";
