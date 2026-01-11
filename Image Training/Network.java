@@ -97,6 +97,12 @@ public class Network
    public String saveWeightsFilePath;  // file path to save weights to (binary path)
    public String inputsFilePath;       //  file path to load test cases from
    public String outputsFilePath;      // file path to load expected outputs from
+   public String testCaseConfig;      // "Binary" or "Text"
+   public int imageWidth;             // width of input images (for binary config)
+   public int imageHeight;            // height of input images (for binary config)
+   public int numTrainCases;          // number of training cases when training
+   public String trainingInputsPath;  // directory for training inputs
+   public String testingInputsPath;   // directory for testing inputs
    
    private double averageError;  // average error across all test cases
    private int iteration;        // current training iteration
@@ -104,6 +110,7 @@ public class Network
    private int numTestCases;           // number of test cases
    private double[][] testCaseInput;   // input values for all test cases
    private double[][] testCaseOutput;  // expected output values for all test cases
+   private String[] testCaseNames; // filename (for binary image inputs)
 
    private double startTime;  // for timing training/running
    private double endTime;    // for timing training/running
@@ -197,9 +204,38 @@ public class Network
          this.isTraining = Boolean.parseBoolean(props.getProperty("isTraining"));
          this.runAfterTraining = Boolean.parseBoolean(props.getProperty("runAfterTraining"));
 
-         this.numTestCases = Integer.parseInt(props.getProperty("numTestCases"));
-         this.inputsFilePath = props.getProperty("inputsFilePath");
+         // Image / test case related properties (support for binary image input)
+         this.testCaseConfig = props.getProperty("testCaseConfig");
+         String imgW = props.getProperty("imageWidth");
+         String imgH = props.getProperty("imageHeight");
+         if (imgW != null) this.imageWidth = Integer.parseInt(imgW);
+         if (imgH != null) this.imageHeight = Integer.parseInt(imgH);
+
+         // training vs testing counts and paths
+         String numTrain = props.getProperty("numTrainCases");
+         if (numTrain != null) this.numTrainCases = Integer.parseInt(numTrain);
+         String numTest = props.getProperty("numTestCases");
+         if (numTest != null) this.numTestCases = Integer.parseInt(numTest);
+
+         this.trainingInputsPath = props.getProperty("trainingInputsPath");
+         this.testingInputsPath = props.getProperty("testingInputsPath");
+         this.inputsFilePath = props.getProperty("inputsFilePath"); // fallback for text-style configs
          this.outputsFilePath = props.getProperty("outputsFilePath");
+
+         // If using images, set inputsFilePath and numTestCases based on training vs testing
+         if (this.testCaseConfig != null && this.testCaseConfig.equalsIgnoreCase("Binary"))
+         {
+            if (this.isTraining)
+            {
+               if (this.trainingInputsPath != null) this.inputsFilePath = this.trainingInputsPath;
+               if (this.numTrainCases > 0) this.numTestCases = this.numTrainCases;
+            }
+            else
+            {
+               if (this.testingInputsPath != null) this.inputsFilePath = this.testingInputsPath;
+               // numTestCases should already be set from configs for testing
+            }
+         }
       } // try
       catch (Exception e)
       {
@@ -309,6 +345,7 @@ public class Network
       }
 
       testCaseInput = new double[numTestCases][numActivations[INPUT_LAYER_INDEX]];
+      testCaseNames = new String[numTestCases];
       
       if (isTraining || printTruthTable)
       {
@@ -386,65 +423,194 @@ public class Network
  */
    public void fillFileTestCases()
    {
-      Scanner inputFileScanner;
-      try
+      // Support for binary image inputs as well as legacy text inputs
+      if (this.testCaseConfig != null && this.testCaseConfig.equalsIgnoreCase("Binary"))
       {
-         inputFileScanner = new Scanner(new File(inputsFilePath));
-      }
-      catch (Exception e)
-      {
-         throw new IllegalArgumentException("Error: Unable to open file at " + inputsFilePath);
-      }
-
-      for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
-      {
-         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
+         // Read image files from inputsFilePath directory
+         File dir = new File(inputsFilePath);
+         if (!dir.exists() || !dir.isDirectory())
          {
-            if (inputFileScanner.hasNextDouble())
-            {
-               testCaseInput[caseIndex][m] = inputFileScanner.nextDouble();
-            }
-            else
-            {
-               inputFileScanner.close();
-               throw new IllegalArgumentException("Error: Not enough input values in test cases file.");
-            }
-         } // for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
-      } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
-
-      inputFileScanner.close();
-      Scanner outputFileScanner;
-
-      if (isTraining || printTruthTable)
-      {
-         try
-         {
-            outputFileScanner = new Scanner(new File(outputsFilePath));
+            throw new IllegalArgumentException("Error: inputsFilePath is not a directory: " + inputsFilePath);
          }
-         catch (Exception e)
+
+         File[] files = dir.listFiles();
+         if (files == null)
          {
-            throw new IllegalArgumentException("Error: Unable to open file at " + outputsFilePath);
+            throw new IllegalArgumentException("Error: Unable to list files in directory: " + inputsFilePath);
+         }
+
+         // Filter out hidden/system entries and files that don't match expected size
+         java.util.List<File> candidates = new java.util.ArrayList<>();
+         int expectedLength = imageWidth * imageHeight;
+         for (File f : files)
+         {
+            if (!f.isFile()) continue;
+            String name = f.getName();
+            if (name.startsWith(".")) continue; // skip .DS_Store and similar
+            long len = f.length();
+            if (len == expectedLength) // prefer exact-size files
+            {
+               candidates.add(f);
+            }
+         }
+
+         // If not enough exact-size files, accept files >= expectedLength (may contain header)
+         if (candidates.size() < numTestCases)
+         {
+            for (File f : files)
+            {
+               if (!f.isFile()) continue;
+               String name = f.getName();
+               if (name.startsWith(".")) continue;
+               long len = f.length();
+               if (len > expectedLength && !candidates.contains(f))
+               {
+                  candidates.add(f);
+               }
+            }
+         }
+
+         candidates.sort((f1, f2) -> f1.getName().compareTo(f2.getName()));
+
+         if (candidates.size() < numTestCases)
+         {
+            throw new IllegalArgumentException("Error: Not enough valid image files in " + inputsFilePath + " (found " + candidates.size() + ", need " + numTestCases + ")");
          }
 
          for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
          {
-            for (int i = 0; i < numActivations[outputLayerIndex]; i++)
+            File f = candidates.get(caseIndex);
+            testCaseNames[caseIndex] = f.getName();
+            try (FileInputStream fis = new FileInputStream(f))
             {
-               if (outputFileScanner.hasNextDouble())
+               byte[] buf = new byte[expectedLength];
+               int read = 0;
+               while (read < expectedLength)
                {
-                  testCaseOutput[caseIndex][i] = outputFileScanner.nextDouble();
+                  int r = fis.read(buf, read, expectedLength - read);
+                  if (r < 0) break;
+                  read += r;
+               }
+
+               if (read < expectedLength)
+               {
+                  throw new IllegalArgumentException("Error: File " + f.getName() + " is too short (" + read + " bytes)");
+               }
+
+               // Normalize bytes to [0,1] and store in testCaseInput
+               for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
+               {
+                  int unsigned = buf[m] & 0xFF;
+                  testCaseInput[caseIndex][m] = ((double) unsigned) / 255.0;
+               }
+
+               // Infer label (1-5) from filename; if not found, leave outputsFilePath handling to legacy code
+               if (isTraining || printTruthTable)
+               {
+                  int label = parseLabelFromFilename(f.getName());
+                  if (label >= 1 && label <= numActivations[outputLayerIndex])
+                  {
+                     for (int i = 0; i < numActivations[outputLayerIndex]; i++)
+                     {
+                        testCaseOutput[caseIndex][i] = (i == (label - 1)) ? 1.0 : 0.0;
+                     }
+                  }
+                  else if (this.outputsFilePath != null && !this.outputsFilePath.isEmpty())
+                  {
+                     // fallback to legacy outputs file if label not inferable
+                  }
+                  else
+                  {
+                     throw new IllegalArgumentException("Error: Unable to determine label for file " + f.getName() + ". Filename must include digit 1-" + numActivations[outputLayerIndex]);
+                  }
+               }
+            }
+            catch (Exception e)
+            {
+               throw new IllegalArgumentException("Error reading file " + f.getName() + ": " + e.getMessage(), e);
+            }
+         }
+      }
+      else
+      {
+         // Legacy text input case
+         Scanner inputFileScanner;
+         try
+         {
+            inputFileScanner = new Scanner(new File(inputsFilePath));
+         }
+         catch (Exception e)
+         {
+            throw new IllegalArgumentException("Error: Unable to open file at " + inputsFilePath);
+         }
+
+         for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+         {
+            for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
+            {
+               if (inputFileScanner.hasNextDouble())
+               {
+                  testCaseInput[caseIndex][m] = inputFileScanner.nextDouble();
                }
                else
                {
-                  outputFileScanner.close();
-                  throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
+                  inputFileScanner.close();
+                  throw new IllegalArgumentException("Error: Not enough input values in test cases file.");
                }
-            } // for (int i = 0; i < numActivations[outputLayerIndex]; i++)
+            } // for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
          } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
 
-         outputFileScanner.close();
-      } // if (isTraining || printTruthTable)
+         inputFileScanner.close();
+         Scanner outputFileScanner;
+
+         if (isTraining || printTruthTable)
+         {
+            try
+            {
+               outputFileScanner = new Scanner(new File(outputsFilePath));
+            }
+            catch (Exception e)
+            {
+               throw new IllegalArgumentException("Error: Unable to open file at " + outputsFilePath);
+            }
+
+            for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+            {
+               for (int i = 0; i < numActivations[outputLayerIndex]; i++)
+               {
+                  if (outputFileScanner.hasNextDouble())
+                  {
+                     testCaseOutput[caseIndex][i] = outputFileScanner.nextDouble();
+                  }
+                  else
+                  {
+                     outputFileScanner.close();
+                     throw new IllegalArgumentException("Error: Not enough output values in test cases file.");
+                  }
+               } // for (int i = 0; i < numActivations[outputLayerIndex]; i++)
+            } // for (int caseIndex = 0; caseIndex < numTestCases; caseIndex++)
+
+            outputFileScanner.close();
+         } // if (isTraining || printTruthTable)
+      }
    } // public void fillFileTestCases()
+
+   /**
+    * Attempts to parse a label 1..5 from the filename by searching for the first digit 1-9.
+    * Returns -1 if none found.
+    */
+   private int parseLabelFromFilename(String name)
+   {
+      for (int i = 0; i < name.length(); i++)
+      {
+         char c = name.charAt(i);
+         if (c >= '1' && c <= '9')
+         {
+            return c - '0';
+         }
+      }
+      return -1;
+   }
 
 /**
  * Trains the network using all training data until the average error is below the error threshold
@@ -469,7 +635,15 @@ public class Network
 
          if ((keepAlive != 0) && ((iteration % keepAlive) == 0)) 
          {
-            System.out.printf("Iteration %d, Error = %f\n", iteration, averageError);
+            System.out.printf("Iteration %d, Error = %.4f\n", iteration, averageError);
+            try
+            {
+               printInputOutputOnly();
+            }
+            catch (Exception e)
+            {
+               System.out.println("Warning: unable to print training truth table at keep-alive: " + e.getMessage());
+            }
          }
       } // while (averageError > errorThreshold && iteration < maxIterations)
    } // public void trainAll()
@@ -636,7 +810,7 @@ public class Network
    {
       System.out.println("\n---------TRAINING RESULTS---------");
       System.out.println("Iterations: " + iteration);
-      System.out.printf("Final Average Error: %.6f\n", averageError);
+      System.out.printf("Final Average Error: %.7f\n", averageError);
       System.out.printf("Training Time: %.0f milliseconds\n", (endTime - startTime));
       System.out.print("Reason: ");
       
@@ -820,18 +994,23 @@ public class Network
          setUpTestCase(caseIndex);
          runByCase(caseIndex);
 
-         System.out.print("[");
-
-         for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
+         if (testCaseConfig != null && testCaseConfig.equalsIgnoreCase("Binary"))
          {
-            System.out.printf("%.2f ", testCaseInput[caseIndex][m]);
+            System.out.print(testCaseNames[caseIndex] + " |");
          }
-
-         System.out.print("|");
+         else
+         {
+            System.out.print("[");
+            for (int m = 0; m < numActivations[INPUT_LAYER_INDEX]; m++)
+            {
+               System.out.printf(" %.2f", testCaseInput[caseIndex][m]);
+            }
+            System.out.print("|");
+         }
 
          for (int i = 0; i < numActivations[outputLayerIndex]; i++)
          {
-            System.out.printf(" %.17f", a[outputLayerIndex][i]);
+            System.out.printf(" %.2f", a[outputLayerIndex][i]);
          }
          
          System.out.println("]");
@@ -894,6 +1073,76 @@ public class Network
    public void startTimer()
    {
       startTime = System.currentTimeMillis();
+   }
+
+   /**
+    * Prepare the network to run on testing images (binary mode).
+    * This resizes test case storage and fills test cases from `testingInputsPath`.
+    */
+   public void prepareRunOnTestingImages()
+   {
+      if (this.testingInputsPath == null || this.testingInputsPath.isEmpty())
+      {
+         throw new IllegalArgumentException("Error: testingInputsPath not configured.");
+      }
+
+      // Switch inputsFilePath to testing directory
+      this.inputsFilePath = this.testingInputsPath;
+
+      // Count candidate files using same logic as fillFileTestCases
+      File dir = new File(this.inputsFilePath);
+      if (!dir.exists() || !dir.isDirectory())
+      {
+         throw new IllegalArgumentException("Error: testingInputsPath is not a directory: " + this.inputsFilePath);
+      }
+
+      File[] files = dir.listFiles();
+      if (files == null)
+      {
+         throw new IllegalArgumentException("Error: Unable to list files in directory: " + this.inputsFilePath);
+      }
+
+      int expectedLength = this.imageWidth * this.imageHeight;
+      java.util.List<File> candidates = new java.util.ArrayList<>();
+      for (File f : files)
+      {
+         if (!f.isFile()) continue;
+         String name = f.getName();
+         if (name.startsWith(".")) continue;
+         long len = f.length();
+         if (len == expectedLength) candidates.add(f);
+      }
+      if (candidates.size() < 1)
+      {
+         for (File f : files)
+         {
+            if (!f.isFile()) continue;
+            String name = f.getName();
+            if (name.startsWith(".")) continue;
+            long len = f.length();
+            if (len > expectedLength && !candidates.contains(f)) candidates.add(f);
+         }
+      }
+
+      candidates.sort((f1, f2) -> f1.getName().compareTo(f2.getName()));
+
+      // Resize test case storage to number of testing candidates
+      int newNum = candidates.size();
+      if (newNum < 1)
+      {
+         throw new IllegalArgumentException("Error: No testing image files found in " + this.inputsFilePath);
+      }
+
+      this.numTestCases = newNum;
+      this.testCaseInput = new double[this.numTestCases][numActivations[INPUT_LAYER_INDEX]];
+      if (isTraining || printTruthTable)
+      {
+         this.testCaseOutput = new double[this.numTestCases][numActivations[outputLayerIndex]];
+      }
+      this.testCaseNames = new String[this.numTestCases];
+
+      // Fill test cases from directory (reuse binary branch of fillFileTestCases)
+      fillFileTestCases();
    }
 
 /**

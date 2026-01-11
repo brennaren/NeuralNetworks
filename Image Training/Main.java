@@ -66,6 +66,20 @@ public class Main
 
          if (network.runAfterTraining)
          {
+            // If configured to use binary images and testing inputs exist, switch to testing images
+            try
+            {
+               if (network.testCaseConfig != null && network.testCaseConfig.equalsIgnoreCase("Binary"))
+               {
+                  network.prepareRunOnTestingImages();
+               }
+            }
+            catch (Exception e)
+            {
+               // If switching to testing images fails, fall back to previously loaded test cases
+               System.out.println("Warning: could not switch to testing images: " + e.getMessage());
+            }
+
             network.runAll();
             network.printRunResults();
          }
